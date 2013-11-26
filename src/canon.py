@@ -47,21 +47,11 @@ class canon(object):
 
     def end_logging(self):
         self.rec('________________________________________')
-        self.rec(strftime('\nEnd time: %Y-%m-%d %H:%M:%S'))
+        self.rec(strftime('End time: %Y-%m-%d %H:%M:%S'))
         self.end_time = datetime.datetime.now().replace(microsecond=0)
-        self.rec('\nTotal time: ' + str(self.end_time - self.start_time))
+        self.rec('Total time: ' + str(self.end_time - self.start_time))
         self.logf.close()
         
-
-    def rec(self, string, newline=True):
-        if newline:
-            print >> self.logf, string
-            self.logf.flush()
-        else:
-            print string,
-            self.logf.flush()
-        say(string)        
-
     
     def get_stats(self):        
         self.v1_i = {}
@@ -77,7 +67,7 @@ class canon(object):
         i1 = 0 # distinct number per feature in view 1 
         i2 = 0 # distinct number per feature in view 2
         
-        self.rec('\nGetting statistics from: %s' % self.views)
+        self.rec('Getting statistics from: %s' % self.views)
         
         with open(self.views) as f:
             for line in f:
@@ -108,15 +98,15 @@ class canon(object):
                         view1 = self.v1_i[toks[i]]
                         self.countsXY[view1, view2] += count
 
-        self.rec('\nConverting the statistics to matrices')
+        self.rec('Converting the statistics to matrices')
         self.countsXY = csc_matrix((self.countsXY.values(), zip(*self.countsXY.keys())), shape=(len(self.countsX), len(self.countsY)))
         self.countsX = array([self.countsX[j] for j in range(len(self.countsX))])
         self.countsY = array([self.countsY[j] for j in range(len(self.countsY))])            
 
     
     def approx_cca(self):        
-        self.rec('\nPerforming approximate CCA:')
-        self.rec('\n1. Pseudo-whitening')    
+        self.rec('\nNow perform approximate CCA:')
+        self.rec('1. Pseudo-whitening')    
         invsqrt_covX = self.compute_invsqrt_cov(self.countsX + self.kappa, self.num_samples + len(self.countsX) * self.kappa)
         invsqrt_covY = self.compute_invsqrt_cov(self.countsY + self.kappa, self.num_samples + len(self.countsY) * self.kappa)
 
@@ -126,57 +116,19 @@ class canon(object):
         
         del self.countsXY; gc.collect() # try to free some memory
 
-        self.rec('\n\tO := XY - X * Y\' is the pseudo-whitened {} x {} correlation matrix where'.format(XY.shape[0], XY.shape[1]))
-        self.rec('\n\t- XY has dimensions {} x {} (sparse: has {} nonzeros)'.format(XY.shape[0], XY.shape[1], XY.nnz))
+        self.rec('\tComputed XY, X, and Y where')
+        self.rec('\t- XY has dimensions {} x {} (sparse: has {} nonzeros)'.format(XY.shape[0], XY.shape[1], XY.nnz))
         self.rec('\t- X has length {}'.format(X.shape[0]))
         self.rec('\t- Y has length {}'.format(Y.shape[0]))
 
-        self.rec('\n2. Approximate SVD on O')
+        self.rec('2. Approximate SVD on O := XY - X * Y\'')
         U, self.corr, V = self.approx_svd(XY, X, Y)
     
-        # de-whitening
-        self.rec('\n3. De-whitening')
+        self.rec('3. De-whitening')
         self.A = invsqrt_covX * U;
         self.B = invsqrt_covY * V;
 
 
-    def approx_svd(self, XY, X, Y):
-        d1, d2 = XY.shape
-        
-        # find orth Q such that the range of XY - X*Y' is close to the range of (Q*Q') * (XY - X*Y')
-        self.rec('\n\tAssigning random T (dimensions: {} x {})'.format(d2, self.cca_dim + self.extra_dim))
-        T = randn(d2, self.cca_dim + self.extra_dim)
-
-        self.rec('\n\tComputing Z = O * T (dimensions: {} x {})'.format(d1, T.shape[1]))
-        Z = XY * T - X * (Y.T * T)
-        del T; gc.collect()
-        
-        self.rec('\n\tKeep computing Z = (O * O\') * Z')
-        for i in range(self.power_num): # power iteration
-            self.rec('\t\tPower iteration {} / {}'.format(i+1, self.power_num)) 
-            t1 = XY * (XY.T * Z)
-            t2 = XY * (Y * (X.T * Z))
-            t3 = X * (Y.T * (XY.T * Z))
-            t4 = X * (Y.T * (Y * (X.T * Z)))
-            Z = t1 - t2 - t3 + t4
-        
-        self.rec('\n\tObtain an orthonormal basis Q of range(Z) by computing QR(Z) = Q * R')
-        Q, _ = qr(Z, mode='economic')
-        del t1; del t2; del t3; del t4; del Z; gc.collect()
-    
-        # obtain a smaller matrix and do a thin svd
-        self.rec('\n\tPerform SVD on B = Q\' * O which is now a {} x {} matrix (vs. original {} x {})'.format(Q.shape[1], d2, d1, d2))
-        B = Q.T * XY - (Q.T * X) * Y.T
-        U_low, corr, VT = svd(B, full_matrices=False)
-        
-        self.rec('\n\tCollecting the top {} SVD components'.format(self.cca_dim))
-        corr = corr[:self.cca_dim]
-        U = csc_matrix(Q) * U_low[:, :self.cca_dim] # bring U back to the original dimension
-        V= VT.T[:, :self.cca_dim]
-        
-        return U, corr, V
-
-    
     def compute_invsqrt_cov(self, counts, num_samples):
         mean = counts / float(num_samples)
         var = mean - pow(mean, 2)    
@@ -185,6 +137,43 @@ class canon(object):
         return invsqrt_cov
 
 
+    def approx_svd(self, XY, X, Y):
+        d1, d2 = XY.shape
+        
+        # find orth Q such that the range of XY - X*Y' is close to the range of (Q*Q') * (XY - X*Y')
+        self.rec('\tAssigning random T (dimensions: {} x {})'.format(d2, self.cca_dim + self.extra_dim))
+        T = randn(d2, self.cca_dim + self.extra_dim)
+
+        self.rec('\tComputing Z = O * T (dimensions: {} x {})'.format(d1, T.shape[1]))
+        Z = XY * T - X * (Y.T * T)
+        del T; gc.collect()
+        
+        self.rec('\tPower iteration: keep computing Z = (O * O\') * Z')
+        for i in range(self.power_num): # power iteration
+            self.rec('\t\tIteration {} / {}'.format(i+1, self.power_num)) 
+            t1 = XY * (XY.T * Z)
+            t2 = XY * (Y * (X.T * Z))
+            t3 = X * (Y.T * (XY.T * Z))
+            t4 = X * (Y.T * (Y * (X.T * Z)))
+            Z = t1 - t2 - t3 + t4
+        
+        self.rec('\tObtain an orthonormal basis Q from QR(Z) = Q * R')
+        Q, _ = qr(Z, mode='economic')
+        del t1; del t2; del t3; del t4; del Z; gc.collect()
+    
+        # obtain a smaller matrix and do a thin svd
+        self.rec('\tPerform SVD on B = Q\' * O (now {} x {}) (vs. original {} x {})'.format(Q.shape[1], d2, d1, d2))
+        B = Q.T * XY - (Q.T * X) * Y.T
+        U_low, corr, VT = svd(B, full_matrices=False)
+        
+        self.rec('\tCollecting the top {} SVD components of B'.format(self.cca_dim))
+        corr = corr[:self.cca_dim]
+        U = csc_matrix(Q) * U_low[:, :self.cca_dim] # bring U back to the original dimension
+        V= VT.T[:, :self.cca_dim]
+        
+        return U, corr, V
+
+    
     def write_result(self):
         self.write_corr()
         self.write_A()
@@ -201,7 +190,7 @@ class canon(object):
 
         
     def write_A(self):
-        self.rec('\nNormalzing rows of A and storing them at: %s' % self.dirname+'/A')
+        self.rec('Normalzing rows of A and storing them at: %s' % self.dirname+'/A')
         for i in range(self.A.shape[0]):
             self.A[i,:] /= norm(self.A[i,:])
         
@@ -215,7 +204,7 @@ class canon(object):
 
 
     def write_B(self):
-        self.rec('\nNormalzing rows of B and storing them at: %s' % self.dirname+'/B')
+        self.rec('Normalzing rows of B and storing them at: %s' % self.dirname+'/B')
         for i in range(self.B.shape[0]):
             self.B[i,:] /= norm(self.B[i,:])
         
@@ -226,4 +215,15 @@ class canon(object):
                 for j in range(len(self.B[i,:])):
                     print >> f, self.B[i,j], 
                 print >> f
+
+
+    def rec(self, string, newline=True):
+        if newline:
+            print >> self.logf, string
+            self.logf.flush()
+        else:
+            print string,
+            self.logf.flush()
+        say(string)        
+
 

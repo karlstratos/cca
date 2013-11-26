@@ -5,7 +5,7 @@
 # ignore input folder except for sample
 input/*
 !input/README
-!input/sample
+!input/sample/sample.corpus
 
 # ignore outputs
 output/*

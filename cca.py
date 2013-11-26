@@ -1,18 +1,25 @@
 import argparse
 from src.tools import count_ngrams
+from src.tools import cutoff_rare
 from src.tools import extract_views
 from src.canon import canon
 
 description = 'Performs various operations required for CCA'
 argparser = argparse.ArgumentParser(description)
 
-# for making n-grams
-argparser.add_argument('--count_ngrams',  type=str,                           help='count n-grams from this corpus')
+# for counting n-grams from a corpus
+argparser.add_argument('--corpus', type=str, help='count n-grams from this corpus')
+
+# n-grams to use 
+argparser.add_argument('--ngrams',      type=str,             help='an n-gram file')
+
+# cutoff rare words in the given n-grams
+argparser.add_argument('--cutoff_rare', action='store_true',  help='replace rare words with \"<?>\" in these n-grams')
+argparser.add_argument('--cutoff',      type=int,  default=0, help='discard features that appear <= cutoff')
+argparser.add_argument('--unigrams',    type=str,             help='unigrams needed for identifying rare words')
 
 # for featurizing n-grams
-argparser.add_argument('--extract_views', type=str,                           help='extract views from these n-grams')
-argparser.add_argument('--threshold',     type=int,            default=0,     help='discard features that appear <= this number')
-argparser.add_argument('--spelling',      action='store_true', default=False, help='use spelling features when extracting views')
+argparser.add_argument('--extract_views', action='store_true', help='extract views from these n-grams')
 
 # for CCA 
 argparser.add_argument('--views',     type=str,                           help='views to do CCA on')
@@ -24,18 +31,25 @@ argparser.add_argument('--wantB',     action='store_true', default=False, help='
 args = argparser.parse_args()
 
 
-if args.count_ngrams:    
-    count_ngrams(args.count_ngrams)
+if args.corpus:
+    count_ngrams(args.corpus)
 
 
-if args.extract_views:
-    extract_views(args.extract_views, args.threshold, args.spelling)    
+if args.ngrams:
+    if args.cutoff_rare:
+        cutoff_rare(args.ngrams, args.cutoff, args.unigrams)
+    
+    if args.extract_views:
+        extract_views(args.ngrams)
 
 
 if args.views:
-    C = canon()    
+    C = canon()
+        
     C.set_views(args.views)
+    
     C.set_wantB(args.wantB)
+    
     C.set_params(args.cca_dim, args.kappa, args.extra_dim, args.power_num)
     
     C.start_logging()
