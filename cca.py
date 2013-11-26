@@ -2,6 +2,7 @@ import argparse
 from src.tools import count_ngrams
 from src.tools import cutoff_rare
 from src.tools import extract_views
+from src.tools import nv_classify
 from src.canon import canon
 
 description = 'Performs various operations required for CCA'
@@ -21,13 +22,18 @@ argparser.add_argument('--unigrams',    type=str,             help='unigrams nee
 # for featurizing n-grams
 argparser.add_argument('--extract_views', action='store_true', help='extract views from these n-grams')
 
-# for CCA 
+# for performing CCA 
 argparser.add_argument('--views',     type=str,                           help='views to do CCA on')
 argparser.add_argument('--cca_dim',   type=int,            default=200,   help='number of CCA dimensions')
 argparser.add_argument('--extra_dim', type=int,            default=40,    help='oversampling parameter')
 argparser.add_argument('--power_num', type=int,            default=5,     help='number of power iterations')
 argparser.add_argument('--kappa',     type=int,            default=100,   help='pseudocounts for smoothing')
 argparser.add_argument('--wantB',     action='store_true', default=False, help='write view 2 projeciton as well?')
+
+# for checking the quality of CCA
+argparser.add_argument('--A', type=str, help='view 1 embeddings')
+argparser.add_argument('--nv_list', type=str, help='list of nouns and verbs to classify')
+
 args = argparser.parse_args()
 
 
@@ -61,6 +67,10 @@ if args.views:
     C.write_result()
         
     C.end_logging()
-    
+
+
+if args.A:
+    if args.nv_list:
+        nv_classify(args.A, args.nv_list)
     
     

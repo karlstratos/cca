@@ -1,6 +1,7 @@
 import sys
 import os
 import gc
+import numpy
 from collections import Counter
 from collections import deque
 
@@ -142,6 +143,97 @@ def extract_views(ngrams):
 
                 print >> outf
 
+
+def pca(A):
+    """ performs principal components analysis 
+        (PCA) on the n-by-p data matrix A
+        Rows of A correspond to observations, columns to variables. 
+    """
+    M = (A-numpy.mean(A.T,axis=1)).T 
+    [evals,evecs] = numpy.linalg.eig(numpy.cov(M)) 
+    idx = evals.argsort()[::-1]   
+    evals = evals[idx]
+    evecs = evecs[:,idx]
+    pca_vals = numpy.dot(evecs.T,M) # projection of the data in the new space
+    return evecs, pca_vals, evals
                      
 
                     
+def nv_classify(A, nv_list):
+    true_tag = {}
+    v_num = 0
+    n_num = 0
+    wdic = {}
+    wdici = {}
+    wnum = 0
+    lines = open(nv_list).readlines()
+    for line in lines:
+        word, tag = line.split()
+        true_tag[word] = tag
+        if tag == 'v':
+            v_num += 1
+        elif tag == 'n':
+            n_num += 1
+        else:
+            print 'v/n format is wrong'
+            exit(-1)
+        wdic[word] = wnum
+        wdici[wnum] = word
+        wnum += 1
+    
+    rep = {}
+    dim = 0
+    lines = open(A).readlines()
+    for line in lines:
+        toks = line.split()
+        word = toks[1]
+        if word in true_tag or word == '<?>':
+            if word == '<?>':
+                wdic[word] = wnum
+                wdici[wnum] = word
+                wnum += 1
+            rep[wdic[word]] = map(lambda x: float(x), toks[2:])
+            dim = len(rep[wdic[word]])
+    
+    Amat = numpy.zeros((len(rep), dim))
+    for word_i in rep:
+        if word_i < Amat.shape[0]:
+            try:
+                Amat[word_i,:] = rep[word_i]
+            except:
+                Amat[word_i,:] = rep[wdic['<?>']]
+                
+    _, pca_vals, _ = pca(Amat) 
+    
+    pca1_vals = pca_vals[0,:]
+    
+    correct = 0
+    indices = sorted(range(len(pca1_vals)), key=lambda i: pca1_vals[i])
+    for word_i in indices:
+        word = wdici[word_i]
+        pca1_val = pca1_vals[word_i]
+        pred_tag = 'v' if pca1_val > 0 else 'n'
+        if word in true_tag:
+            if pred_tag == true_tag[word]:
+                correct += 1
+    
+    acc = float(correct)/len(pca1_vals) * 100
+    
+    reverse = False
+    if acc < 50:
+        correct = len(indices)-correct
+        acc = float(correct)/len(pca1_vals) * 100
+        reverse = True
+    
+    for word_i in indices:
+        word = wdici[word_i]
+        pca1_val = pca1_vals[word_i]
+        if not reverse:
+            pred_tag = 'v' if pca1_val > 0 else 'n'
+        else:
+            pred_tag = 'n' if pca1_val > 0 else 'v'
+    
+    say('acc: {}% ({} / {})'.format(acc, correct, len(indices)))        
+    say('{} verbs, {} nouns'.format(v_num, n_num))
+
+
