@@ -1,0 +1,16 @@
+# ignore saved or compiled files
+*~
+*pyc
+
+# ignore input folder except for sample
+input/*
+!input/README
+!input/sample
+
+# ignore outputs
+output/*
+!output/README
+
+# ignore dot files except for this
+.*
+!.gitignore
