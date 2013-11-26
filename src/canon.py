@@ -19,15 +19,21 @@ class canon(object):
 
 
     def set_views(self, views):
-        assert(os.path.isfile(views))        
+        assert(os.path.isfile(views))
+        say('views: {}'.format(views))
         self.views = views
 
     
     def set_wantB(self, wantB):
+        say('wantB: {}'.format(wantB))
         self.wantB = wantB
 
     
     def set_params(self, cca_dim, kappa, extra_dim, power_num):
+        say('cca_dim: {}'.format(cca_dim))
+        say('kappa: {}'.format(kappa))
+        say('extra_dim: {}'.format(extra_dim))
+        say('power_num: {}'.format(power_num))
         self.cca_dim = cca_dim
         self.kappa = kappa
         self.extra_dim = extra_dim
@@ -197,7 +203,9 @@ class canon(object):
         with open(self.dirname+'/A', 'wb') as f:
             sorted_indices = self.countsX.argsort()[::-1]        
             for i in sorted_indices:
-                print >> f, self.countsX[i], self.v1_w[i] # don't write <*> 
+                if self.v1_w[i] == '<*>': # ignore buffer symbol
+                    continue
+                print >> f, self.countsX[i], self.v1_w[i], 
                 for j in range(len(self.A[i,:])):
                     print >> f, self.A[i,j], 
                 print >> f
@@ -211,7 +219,9 @@ class canon(object):
         with open(self.dirname+'/B', 'wb') as f:
             sorted_indices = self.countsY.argsort()[::-1]        
             for i in sorted_indices:
-                print >> f, self.countsY[i], self.v2_w[i] # don't write <*>
+                if self.v2_w[i][:2] == '<*>': # ignore buffer symbol
+                    continue                
+                print >> f, self.countsY[i], self.v2_w[i], # don't write <*>
                 for j in range(len(self.B[i,:])):
                     print >> f, self.B[i,j], 
                 print >> f

@@ -35,8 +35,8 @@ def count_ngrams(corpus, n_vals=False):
             for tok in toks:
                 num_tok += 1
                 if num_tok % _status_unit_ == 0:
-                    say('/==%dm===/' % status, False)
                     status += 1
+                    say('/==%dm===/' % status, False)
                 for i in range(len(n_vals)):
                     queues[i].append(tok)
                     ngrams[i][tuple(queues[i])] += 1
