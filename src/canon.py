@@ -73,8 +73,6 @@ class canon(object):
         i1 = 0 # distinct number per feature in view 1 
         i2 = 0 # distinct number per feature in view 2
         
-        self.rec('Getting statistics from: %s' % self.views)
-        
         with open(self.views) as f:
             for line in f:
                 toks = line.split()
@@ -104,7 +102,6 @@ class canon(object):
                         view1 = self.v1_i[toks[i]]
                         self.countsXY[view1, view2] += count
 
-        self.rec('Converting the statistics to matrices')
         self.countsXY = csc_matrix((self.countsXY.values(), zip(*self.countsXY.keys())), shape=(len(self.countsX), len(self.countsY)))
         self.countsX = array([self.countsX[j] for j in range(len(self.countsX))])
         self.countsY = array([self.countsY[j] for j in range(len(self.countsY))])            
@@ -120,7 +117,7 @@ class canon(object):
         X  = csc_matrix((1./self.num_samples) * invsqrt_covX * self.countsX).T
         Y  = csc_matrix((1./self.num_samples) * invsqrt_covY * self.countsY).T
         
-        del self.countsXY; gc.collect() # try to free some memory
+        #del self.countsXY; gc.collect() # try to free some memory
 
         self.rec('\tComputed XY, X, and Y where')
         self.rec('\t- XY has dimensions {} x {} (sparse: has {} nonzeros)'.format(XY.shape[0], XY.shape[1], XY.nnz))
