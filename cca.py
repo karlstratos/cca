@@ -42,7 +42,7 @@ if args.corpus:
 
 if args.ngrams:
     if args.cutoff:
-        cutoff_rare(args.ngrams, args.cutoff_rare, args.unigrams)
+        cutoff_rare(args.ngrams, args.cutoff, args.unigrams)
     
     if args.extract_views:
         extract_views(args.ngrams)

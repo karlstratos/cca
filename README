@@ -1,0 +1,53 @@
+1. When you have a raw text corpus:
+
+Let's use the tiny corpus input/sample/sample.corpus as a running example.
+
+(a) Derive n-gram counts from this corpus:
+
+python cca.py --corpus input/sample/sample.corpus
+
+This will prompt you to specify what values of n you want. For example, 
+I can type in 1 and 3 and see the following:
+
+Counting...  
+Total 10012 tokens
+Sorting 2672 1grams and writing to: input/sample/sample.1grams
+Sorting 8461 3grams and writing to: input/sample/sample.3grams
+
+(b) Cutoff rare words in the n-grams. For this, you need unigram counts.
+For example, I can type in:
+
+python cca.py --ngrams input/sample/sample.3grams --cutoff 1 --unigrams input/sample/sample.1grams
+
+This will create a processed trigram counts input/sample/sample.3grams.cutoff1.
+
+(c) Now you can extract features from this processed n-gram counts, e.g, 
+
+python cca.py --ngrams input/sample/sample.3grams.cutoff1 --extract_views
+
+This will create a file of features input/sample/sample.3grams.cutoff1.featurized.
+
+(d) Finally, you can run CCA on this feature file:
+
+python cca.py --views input/sample/sample.3grams.cutoff1.featurized 
+
+You can specify the parameters 
+  --cca_dim CCA_DIM     number of CCA dimensions
+  --extra_dim EXTRA_DIM
+                        oversampling parameter
+  --power_num POWER_NUM
+                        number of power iterations
+  --kappa KAPPA         pseudocounts for smoothing
+  --wantB               write view 2 projeciton as well?
+
+These parameters have default settings. The result will be written at:
+
+output/sample.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/A
+
+
+
+2. When you have an n-gram file (e.g., Google n-grams):
+
+Follow part 1 from step (b).
+
+
