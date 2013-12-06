@@ -77,8 +77,11 @@ def cutoff_rare(ngrams, cutoff, unigrams):
         for line in f:
             num_unigrams += 1
             toks = line.split()
+            if len(toks) != 2:
+                continue
             word = toks[0]
             count = int(toks[1])
+                
             if count <= cutoff:
                 rare[word] = count
     

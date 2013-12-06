@@ -148,8 +148,15 @@ class canon(object):
         T = randn(d2, self.cca_dim + self.extra_dim)
 
         self.rec('\tComputing Z = O * T (dimensions: {} x {})'.format(d1, T.shape[1]))
-        Z = XY * T - X * (Y.T * T)
-        del T; gc.collect()
+        try:
+            Z = XY * T - X * (Y.T * T)
+        except:
+            print '\t\tCould not compute this, why?'
+            
+        try:
+            del T; gc.collect()
+        except:
+            print '\t\tThere was a problem calling gc.collect(), proceeding'
         
         self.rec('\tPower iteration: keep computing Z = (O * O\') * Z')
         for i in range(self.power_num): # power iteration
