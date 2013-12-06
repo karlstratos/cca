@@ -100,9 +100,11 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
                 vocab[word] = count
                 myvocab_hit[word] = True
 
-    
+    vocab['_START_'] = True
+    vocab['_END_'] = True    
     say('Will keep {} out of {} words'.format(len(vocab), num_unigrams))
     say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
+    
     ans = raw_input('Do you want to proceed with the setting? [Y/N] ')
     if ans == 'N' or ans == 'n':
         exit(0)
