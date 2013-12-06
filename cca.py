@@ -15,8 +15,10 @@ argparser.add_argument('--corpus', type=str, help='count n-grams from this corpu
 #_________________________________________________________________________________________________________________________________
 argparser.add_argument('--ngrams',        type=str,            help='an n-gram file')
 argparser.add_argument('--cutoff',        type=int,            help='cutoff words appearing <= this number')         
-argparser.add_argument('--unigrams',      type=str,            help='unigrams needed for identifying rare words')  
-argparser.add_argument('--extract_views', action='store_true', help='extract views from n-grams')  
+argparser.add_argument('--unigrams',      type=str,            help='unigrams needed for identifying rare words')
+argparser.add_argument('--myvocab',       type=str,            help='tagged sentences: keep these words even if rare')
+argparser.add_argument('--extract_views', action='store_true', help='extract views from n-grams')
+argparser.add_argument('--outfile',       type=str,            help='store the preprocessed output in this file')
 #_________________________________________________________________________________________________________________________________
 argparser.add_argument('--views',     type=str,                           help='views to do CCA on')
 argparser.add_argument('--cca_dim',   type=int,            default=200,   help='number of CCA dimensions')
@@ -29,7 +31,7 @@ argparser.add_argument('--anchor_words', type=str, help='list of anchor words to
 #_________________________________________________________________________________________________________________________________
 argparser.add_argument('--A', type=str, help='view 1 embeddings')
 #_________________________________________________________________________________________________________________________________
-argparser.add_argument('--clean',     action='store_true', default=False, help='clean up the project folder')
+argparser.add_argument('--clean', action='store_true', help='clean up the project folder')
 argparser.add_argument('--quiet', action='store_true', help='quiet mode')
 
 args = argparser.parse_args()
@@ -42,10 +44,10 @@ if args.corpus:
 
 if args.ngrams:
     if args.cutoff:
-        cutoff_rare(args.ngrams, args.cutoff, args.unigrams)
+        cutoff_rare(args.ngrams, args.cutoff, args.unigrams, args.myvocab, args.outfile)
     
     if args.extract_views:
-        extract_views(args.ngrams)
+        extract_views(args.ngrams, args.outfile)
 
 if args.views:
     C = canon()

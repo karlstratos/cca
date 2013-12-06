@@ -68,10 +68,21 @@ def count_ngrams(corpus, n_vals=False):
             ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
 
 
-def cutoff_rare(ngrams, cutoff, unigrams):
-    assert(os.path.isfile(unigrams))    
+def cutoff_rare(ngrams, cutoff, unigrams, myvocab, outfile):
+    assert(unigrams and os.path.isfile(unigrams)) 
+    assert(myvocab and os.path.isfile(myvocab))    
+
+    keep = {}
+    with open(myvocab) as f:
+        for line in f:
+            toks = line.split()
+            if len(toks) == 0:
+                continue
+            keep[toks[0]] = True
+    
     say('Reading unigrams')
     rare = Counter()
+    have = {}
     num_unigrams = 0 
     with open(unigrams) as f:
         for line in f:
@@ -81,12 +92,19 @@ def cutoff_rare(ngrams, cutoff, unigrams):
                 continue
             word = toks[0]
             count = int(toks[1])
-                
-            if count <= cutoff:
+            
+            if word in keep:
+                have[word] = True
+            
+            if (not word in keep) and count <= cutoff:
                 rare[word] = count
     
-    say('Only {} out of {} words appear > {}, will replace other {} with \"<?>\" token in {}'.\
-                                    format(num_unigrams - len(rare), num_unigrams, cutoff, len(rare), ngrams))
+    
+    say('{} out of {} words appear > {}: will replace others with \"<?>\" in {}'.format(num_unigrams - len(rare), num_unigrams, cutoff, ngrams))
+    say('\t- They include {} out of {} in my vocab'.format(len(have), len(keep)))
+    ans = raw_input('Do you want to proceed with the setting? [Y/N] ')
+    if ans == 'N' or ans == 'n':
+        exit(0)
 
     new_ngrams = Counter()    
     n = 0
@@ -103,8 +121,8 @@ def cutoff_rare(ngrams, cutoff, unigrams):
                 else:
                     new_ngram.append(gram)
             new_ngrams[tuple(new_ngram)] += count
-            
-    outfname = ngrams + '.cutoff' + str(cutoff)
+    
+    outfname = outfile if outfile else ngrams + '.cutoff' + str(cutoff) 
     say('Sorting {} {}grams and writing to: {}'.format(len(new_ngrams), n, outfname))
     sorted_ngrams = sorted(new_ngrams.items(), key=lambda x: x[1], reverse=True)
     with open(outfname, 'wb') as outf:
@@ -126,8 +144,8 @@ def phi(token, rel_position):
     return holder
 
 
-def extract_views(ngrams):
-    outfname = ngrams + '.featurized'
+def extract_views(ngrams, outfile):
+    outfname = outfile if outfile else ngrams + '.featurized'
     say('Writing the featurized file to: ' + outfname)
     with open(outfname, 'wb') as outf:
         with open(ngrams) as f:
