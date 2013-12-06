@@ -68,21 +68,21 @@ def count_ngrams(corpus, n_vals=False):
             ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
 
 
-def cutoff_rare(ngrams, cutoff, unigrams, myvocab, outfile):
+def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
     assert(unigrams and os.path.isfile(unigrams)) 
-    assert(myvocab and os.path.isfile(myvocab))    
+    assert(given_myvocab and os.path.isfile(given_myvocab))    
 
-    keep = {}
-    with open(myvocab) as f:
+    myvocab = {}
+    with open(given_myvocab) as f:
         for line in f:
             toks = line.split()
             if len(toks) == 0:
                 continue
-            keep[toks[0]] = True
+            myvocab[toks[0]] = True
     
     say('Reading unigrams')
-    rare = Counter()
-    have = {}
+    vocab = {}
+    myvocab_hit = {}
     num_unigrams = 0 
     with open(unigrams) as f:
         for line in f:
@@ -93,21 +93,23 @@ def cutoff_rare(ngrams, cutoff, unigrams, myvocab, outfile):
             word = toks[0]
             count = int(toks[1])
             
-            if word in keep:
-                have[word] = True
-            
-            if (not word in keep) and count <= cutoff:
-                rare[word] = count
+            if count > cutoff:
+                vocab[word] = count
+
+            if word in myvocab:
+                vocab[word] = count
+                myvocab_hit[word] = True
+
     
-    
-    say('{} out of {} words appear > {}: will replace others with \"<?>\" in {}'.format(num_unigrams - len(rare), num_unigrams, cutoff, ngrams))
-    say('\t- They include {} out of {} in my vocab'.format(len(have), len(keep)))
+    say('Will keep {} out of {} words'.format(len(vocab), num_unigrams))
+    say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
     ans = raw_input('Do you want to proceed with the setting? [Y/N] ')
     if ans == 'N' or ans == 'n':
         exit(0)
 
     new_ngrams = Counter()    
     n = 0
+    temp = {}
     with open(ngrams) as f:
         for line in f:
             toks = line.split()
@@ -116,10 +118,9 @@ def cutoff_rare(ngrams, cutoff, unigrams, myvocab, outfile):
             count = int(toks[-1])
             new_ngram = []
             for gram in ngram:
-                if gram in rare:
-                    new_ngram.append(_rare_)
-                else:
-                    new_ngram.append(gram)
+                this_tok = gram if gram in vocab else _rare_
+                new_ngram.append(this_tok)
+                temp[this_tok] = True
             new_ngrams[tuple(new_ngram)] += count
     
     outfname = outfile if outfile else ngrams + '.cutoff' + str(cutoff) 
