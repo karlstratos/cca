@@ -298,6 +298,7 @@ def perform_pca(Afile, d):
             words[i] = toks[1]
             rep[i] = map(lambda x: float(x), toks[2:])
     
+    say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
     A = numpy.zeros((len(rep), len(rep[rep.keys()[0]])))
     for i in range(len(rep)):
         A[i,:] = rep[i]
