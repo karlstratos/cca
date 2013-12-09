@@ -5,6 +5,7 @@ from src.tools import count_ngrams
 from src.tools import cutoff_rare
 from src.tools import extract_views
 from src.tools import pairwise_classify
+from src.tools import perform_pca
 from src.canon import canon
 
 
@@ -27,15 +28,15 @@ argparser.add_argument('--power_num', type=int,            default=5,     help='
 argparser.add_argument('--kappa',     type=int,            default=100,   help='pseudocounts for smoothing')
 argparser.add_argument('--wantB',     action='store_true',                help='write view 2 projeciton as well?')
 argparser.add_argument('--optimize',  action='store_true',                help='optimize params on anchor words classification')
-argparser.add_argument('--anchor_words', type=str, help='list of anchor words to classify')
 #_________________________________________________________________________________________________________________________________
 argparser.add_argument('--A', type=str, help='view 1 embeddings')
+argparser.add_argument('--anchor_words', type=str, help='list of anchor words to classify')
+argparser.add_argument('--pca', type=int, help='reduce dimension of A down to this number using PCA')
 #_________________________________________________________________________________________________________________________________
 argparser.add_argument('--clean', action='store_true', help='clean up the project folder')
 argparser.add_argument('--quiet', action='store_true', help='quiet mode')
 
 args = argparser.parse_args()
-
 
 set_quiet(args.quiet)
 
@@ -50,6 +51,10 @@ if args.ngrams:
         extract_views(args.ngrams, args.outfile)
 
 if args.views:
+    
+    if args.optimize:
+        assert(os.path.isfile(args.anchor_words))
+    
     C = canon()
  
     C.set_views(args.views)
@@ -64,7 +69,6 @@ if args.views:
         extra_dims = [args.extra_dim]
         power_nums = [args.power_num]
     else:
-        assert(args.anchor_words) 
         cca_dims   = [200, 400, 600]
         kappas     = [50, 100, 150]
         extra_dims = [100, 200]
@@ -108,6 +112,9 @@ if args.views:
 if args.A:
     if args.anchor_words:
         pairwise_classify(args.A, args.anchor_words)
+        
+    if args.pca:
+        perform_pca(args.A, args.pca) 
         
 if args.clean:
     os.system('rm -rf src/*.pyc src/*~ *.pyc *~ input/sample/*grams* input/sample/*featurized*')

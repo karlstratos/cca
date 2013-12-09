@@ -100,10 +100,11 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
                 vocab[word] = count
                 myvocab_hit[word] = True
 
-    vocab['_START_'] = True
-    vocab['_END_'] = True    
     say('Will keep {} out of {} words'.format(len(vocab), num_unigrams))
     say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
+
+    vocab['_START_'] = True # for google n-grams 
+    vocab['_END_'] = True    
     
     ans = raw_input('Do you want to proceed with the setting? [Y/N] ')
     if ans == 'N' or ans == 'n':
@@ -284,4 +285,31 @@ def classify(tag1, tag2, wdic1, wdic2, rep):
     say('{} {}, {} {}'.format(num1, tag1, num2, tag2))
     return best_acc
 
+
+def perform_pca(Afile, d):
+    freqs = {}
+    words = {}
+    rep = {}
+    say('reading {}'.format(Afile))
+    with open(Afile) as f:
+        for i, line in enumerate(f):    
+            toks = line.split()
+            freqs[i] = toks[0]
+            words[i] = toks[1]
+            rep[i] = map(lambda x: float(x), toks[2:])
+    
+    A = numpy.zeros((len(rep), len(rep[rep.keys()[0]])))
+    for i in range(len(rep)):
+        A[i,:] = rep[i]
+    
+    say('performing PCA to reduce dimensions from {} to {}'.format(len(rep[rep.keys()[0]]), d))            
+    _, pca_vals, _ = pca(A) 
+    A_pca = pca_vals[:d,:].T
+    
+    with open(Afile + '.pca' + str(d), 'wb') as outf:
+        for i in range(len(rep)):
+            print >> outf, freqs[i], words[i],
+            for val in A_pca[i,:]:
+                print >> outf, val,
+            print >> outf
 
