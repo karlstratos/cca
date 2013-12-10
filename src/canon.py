@@ -2,12 +2,11 @@ import os
 import gc
 from collections import Counter
 from tools import say
-from numpy import array
+from numpy import array, zeros
 from numpy.random import randn
 from scipy.sparse import csc_matrix 
 from scipy.linalg import qr
 from scipy.linalg import svd
-from numpy.linalg import norm
 from time import strftime
 import datetime
 
@@ -28,21 +27,26 @@ class canon(object):
         say('wantB: {}'.format(wantB))
         self.wantB = wantB
 
-    
-    def set_params(self, cca_dim, kappa, extra_dim, power_num):
+
+    def set_params(self, cca_dim, kappa, extra_dim, power_num, no_centering):
         say('cca_dim: {}'.format(cca_dim))
         say('kappa: {}'.format(kappa))
         say('extra_dim: {}'.format(extra_dim))
         say('power_num: {}'.format(power_num))
+        say('no_centering: {}'.format(no_centering))
         self.cca_dim = cca_dim
         self.kappa = kappa
         self.extra_dim = extra_dim
         self.power_num = power_num
+        self.no_centering = no_centering
 
                 
     def start_logging(self):
-        self.dirname = 'output/{}.cca_dim{}.kappa{}.extra_dim{}.power_num{}.out'.\
-                        format(os.path.basename(self.views), self.cca_dim, self.kappa, self.extra_dim, self.power_num) 
+        self.dirname = 'output/{}.cca_dim{}.kappa{}.extra_dim{}.power_num{}'.\
+                        format(os.path.basename(self.views), self.cca_dim, self.kappa, self.extra_dim, self.power_num)
+        if self.no_centering:
+            self.dirname += '.no_centering'
+        self.dirname += '.out'
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)                
         self.logf = open(self.dirname+'/log', 'wb')
@@ -59,7 +63,8 @@ class canon(object):
         self.logf.close()
         
     
-    def get_stats(self):        
+    def get_stats(self):
+        say('Gathering statistics from: %s' % self.views)
         self.v1_i = {}
         self.v2_i = {}
         self.v1_w = {}
@@ -108,7 +113,7 @@ class canon(object):
 
     
     def approx_cca(self):        
-        self.rec('\nNow perform approximate CCA:')
+        self.rec('\nPerform approximate CCA:')
         self.rec('1. Pseudo-whitening')    
         invsqrt_covX = self.compute_invsqrt_cov(self.countsX + self.kappa, self.num_samples + len(self.countsX) * self.kappa)
         invsqrt_covY = self.compute_invsqrt_cov(self.countsY + self.kappa, self.num_samples + len(self.countsY) * self.kappa)
@@ -125,6 +130,10 @@ class canon(object):
         self.rec('\t- Y has length {}'.format(Y.shape[0]))
 
         self.rec('2. Approximate SVD on O := XY - X * Y\'')
+        if self.no_centering:
+            self.rec('\tNO CENTERING ACTIVATED: will do approximate SVD on O := XY instead')
+            X = csc_matrix(zeros(X.shape))
+            Y = csc_matrix(zeros(Y.shape))
         U, self.corr, V = self.approx_svd(XY, X, Y)
     
         self.rec('3. De-whitening')
@@ -148,15 +157,8 @@ class canon(object):
         T = randn(d2, self.cca_dim + self.extra_dim)
 
         self.rec('\tComputing Z = O * T (dimensions: {} x {})'.format(d1, T.shape[1]))
-        try:
-            Z = XY * T - X * (Y.T * T)
-        except:
-            print '\t\tCould not compute this, why?'
-            
-        try:
-            del T; gc.collect()
-        except:
-            print '\t\tThere was a problem calling gc.collect(), proceeding'
+        Z = XY * T - X * (Y.T * T)            
+        del T; gc.collect()
         
         self.rec('\tPower iteration: keep computing Z = (O * O\') * Z')
         for i in range(self.power_num): # power iteration
@@ -200,10 +202,8 @@ class canon(object):
 
         
     def write_A(self):
-        self.rec('Normalzing rows of A and storing them at: %s' % self.dirname+'/A')
-        for i in range(self.A.shape[0]):
-            self.A[i,:] /= norm(self.A[i,:])
-        
+        self.rec('Storing A at: %s' % self.dirname+'/A')
+
         with open(self.dirname+'/A', 'wb') as f:
             sorted_indices = self.countsX.argsort()[::-1]        
             for i in sorted_indices:
@@ -216,9 +216,7 @@ class canon(object):
 
 
     def write_B(self):
-        self.rec('Normalzing rows of B and storing them at: %s' % self.dirname+'/B')
-        for i in range(self.B.shape[0]):
-            self.B[i,:] /= norm(self.B[i,:])
+        self.rec('Storing B at: %s' % self.dirname+'/B')
         
         with open(self.dirname+'/B', 'wb') as f:
             sorted_indices = self.countsY.argsort()[::-1]        

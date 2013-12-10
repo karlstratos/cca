@@ -6,19 +6,19 @@ ____________________________________________________________________
 
 (a) Derive n-gram counts from the corpus:
 
-python cca.py --corpus input/sample/sample.corpus
+python cca.py --corpus input/example/example.corpus
 
 (b) Cutoff rare words in the n-grams (you need unigram counts):
 
-python cca.py --ngrams input/sample/sample.3grams --cutoff 1 --unigrams input/sample/sample.1grams
+python cca.py --ngrams input/example/example.3grams --cutoff 1 --unigrams input/example/example.1grams
 
 (c) Extract features from this processed n-gram counts:
 
-python cca.py --ngrams input/sample/sample.3grams.cutoff1 --extract_views
+python cca.py --ngrams input/example/example.3grams.cutoff1 --extract_views
 
 (d) Run CCA on this feature file:
 
-python cca.py --views input/sample/sample.3grams.cutoff1.featurized 
+python cca.py --views input/example/example.3grams.cutoff1.featurized 
 
 You can specify the parameters
 
@@ -32,8 +32,8 @@ You can specify the parameters
 
 (e) Examine the output:
 
-output/sample.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/A
-output/sample.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/corr
+output/example.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/A
+output/example.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/corr
 
 
 ____________________________________________________________________

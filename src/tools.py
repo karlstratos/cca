@@ -4,8 +4,9 @@ import gc
 import numpy
 from collections import Counter
 from collections import deque
+from pca import pca_svd
 
-# common variables 
+# shared variables 
 _quiet_ = False
 _buffer_ = '<*>'
 _rare_ = '<?>'
@@ -68,21 +69,21 @@ def count_ngrams(corpus, n_vals=False):
             ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
 
 
-def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
+def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
     assert(unigrams and os.path.isfile(unigrams)) 
-    assert(given_myvocab and os.path.isfile(given_myvocab))    
 
-    myvocab = {}
-    with open(given_myvocab) as f:
-        for line in f:
-            toks = line.split()
-            if len(toks) == 0:
-                continue
-            myvocab[toks[0]] = True
+    if(given_myvocab):
+        myvocab = {}
+        myvocab_hit = {}
+        with open(given_myvocab) as f:
+            for line in f:
+                toks = line.split()
+                if len(toks) == 0:
+                    continue
+                myvocab[toks[0]] = True
     
     say('Reading unigrams')
     vocab = {}
-    myvocab_hit = {}
     num_unigrams = 0 
     with open(unigrams) as f:
         for line in f:
@@ -96,12 +97,13 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
             if count > cutoff:
                 vocab[word] = count
 
-            if word in myvocab:
+            if given_myvocab and word in myvocab:
                 vocab[word] = count
                 myvocab_hit[word] = True
 
     say('Will keep {} out of {} words'.format(len(vocab), num_unigrams))
-    say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
+    if given_myvocab:
+        say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
 
     vocab['_START_'] = True # for google n-grams 
     vocab['_END_'] = True    
@@ -126,7 +128,7 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab, outfile):
                 temp[this_tok] = True
             new_ngrams[tuple(new_ngram)] += count
     
-    outfname = outfile if outfile else ngrams + '.cutoff' + str(cutoff) 
+    outfname = ngrams + '.cutoff' + str(cutoff) 
     say('Sorting {} {}grams and writing to: {}'.format(len(new_ngrams), n, outfname))
     sorted_ngrams = sorted(new_ngrams.items(), key=lambda x: x[1], reverse=True)
     with open(outfname, 'wb') as outf:
@@ -148,8 +150,8 @@ def phi(token, rel_position):
     return holder
 
 
-def extract_views(ngrams, outfile):
-    outfname = outfile if outfile else ngrams + '.featurized'
+def extract_views(ngrams):
+    outfname = ngrams + '.featurized'
     say('Writing the featurized file to: ' + outfname)
     with open(outfname, 'wb') as outf:
         with open(ngrams) as f:
@@ -177,121 +179,24 @@ def extract_views(ngrams, outfile):
                 print >> outf
 
 
-def pca(A):
-    M = (A - numpy.mean(A.T,axis=1)).T 
-    [evals,evecs] = numpy.linalg.eig(numpy.cov(M)) 
-    idx = evals.argsort()[::-1]   
-    evals = evals[idx]
-    evecs = evecs[:,idx]
-    pca_vals = numpy.dot(evecs.T,M) # projection of the data in the new space
-    return evecs, pca_vals, evals
-                     
-
-def pairwise_classify(Afile, anchor_words):
-    wdic = {}
-    tdic = {}
-    with open(anchor_words) as f:
-        for line in f:
-            toks = line.split()
-            if len(toks) > 0:
-                word = toks[0]
-                tag = toks[1]
-                if not tag in wdic:
-                    wdic[tag] = [] 
-                wdic[tag].append(word)
-                tdic[word] = tag
-                
-    rep = {}
-    with open(Afile) as f:
-        for line in f:    
-            toks = line.split()
-            word = toks[1]
-            if word in tdic or word == '<?>':
-                rep[word] = map(lambda x: float(x), toks[2:])
-                    
-    acc_all = 0.
-    check = {}
-    for tag1 in wdic:
-        for tag2 in wdic:
-            if tag1 != tag2 and (not (tag2, tag1) in check):
-                mi = min(len(wdic[tag1]), len(wdic[tag2]))
-                acc_all += classify(tag1, tag2, wdic[tag1][:mi], wdic[tag2][:mi], rep)
-                check[(tag1, tag2)] = True
+def perform_pca(embedding_file, pca_dim):
+    freqs, words, A = read_embeddings(embedding_file)
     
-    acc_all /= len(check)
-    say('overall acc: {}'.format(acc_all))
-    return acc_all
-                    
-                    
-def classify(tag1, tag2, wdic1, wdic2, rep):
-    true_tag = {}
-    num1 = len(wdic1)
-    num2 = len(wdic2)
-    wind = {}
-    iwrd = {}
-    wnum = 0
+    say('performing PCA to reduce dimensions from {} to {}'.format(A.shape[1], pca_dim))            
 
-    for word in wdic1:
-        true_tag[word] = tag1
-        wind[word] = wnum
-        iwrd[wnum] = word
-        wnum += 1
-
-    for word in wdic2:
-        true_tag[word] = tag2
-        wind[word] = wnum
-        iwrd[wnum] = word
-        wnum += 1
+    pca_trans, _, _ = pca_svd(A) 
+    A_pca = pca_trans[:,:pca_dim]
     
-    A = numpy.zeros((wnum, len(rep[rep.keys()[0]])))
-    for i in range(wnum):
-        A[i,:] = rep[iwrd[i]] if iwrd[i] in rep else rep['<?>']
-                
-    _, pca_vals, _ = pca(A) 
-    pca1_vals = pca_vals[0,:]
-    
-    best_acc = float('-inf')
-    for j in range(len(pca_vals)):
-        correct = 0
-        indices = sorted(range(len(pca1_vals)), key=lambda i: pca1_vals[i])
-        for word_i in indices:
-            word = iwrd[word_i]
-            pca1_val = pca1_vals[word_i]
-            pred_tag = tag1 if pca1_val > pca1_vals[j] else tag2
-            if word in true_tag:
-                if pred_tag == true_tag[word]:
-                    correct += 1
-        
-        acc = float(correct)/len(pca1_vals) * 100
-        
-        reverse = False
-        if acc < 50:
-            correct = len(indices)-correct
-            acc = float(correct)/len(pca1_vals) * 100
-            reverse = True
+    write_embeddings(freqs, words, A_pca, embedding_file + '.pca' + str(pca_dim))
 
-        for word_i in indices:
-            word = iwrd[word_i]
-            pca1_val = pca1_vals[word_i]
-            if not reverse:
-                pred_tag = tag1 if pca1_val > 0 else tag2
-            else:
-                pred_tag = tag2 if pca1_val > 0 else tag1    
-        
-        if acc > best_acc:
-            best_acc = acc 
-    
-    say('acc: {}% ({} / {})\t'.format(best_acc, correct, len(indices)), False)        
-    say('{} {}, {} {}'.format(num1, tag1, num2, tag2))
-    return best_acc
-
-
-def perform_pca(Afile, d):
+def read_embeddings(embedding_file):
     freqs = {}
     words = {}
     rep = {}
-    say('reading {}'.format(Afile))
-    with open(Afile) as f:
+    
+    say('reading {}'.format(embedding_file))
+    
+    with open(embedding_file) as f:
         for i, line in enumerate(f):    
             toks = line.split()
             freqs[i] = toks[0]
@@ -299,19 +204,47 @@ def perform_pca(Afile, d):
             rep[i] = map(lambda x: float(x), toks[2:])
     
     say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
+
     A = numpy.zeros((len(rep), len(rep[rep.keys()[0]])))
     for i in range(len(rep)):
         A[i,:] = rep[i]
-    
-    say('performing PCA to reduce dimensions from {} to {}'.format(len(rep[rep.keys()[0]]), d))            
-    _, pca_vals, _ = pca(A) 
-    A_pca = pca_vals[:d,:].T
-    
-    with open(Afile + '.pca' + str(d), 'wb') as outf:
-        for i in range(len(rep)):
+  
+    return freqs, words, A
+
+
+def write_embeddings(freqs, words, matrix, filename):
+
+    with open(filename, 'wb') as outf:
+        for i in range(len(words)):
             print >> outf, freqs[i], words[i],
-            for val in A_pca[i,:]:
+            for val in matrix[i,:]:
                 print >> outf, val,
             print >> outf
+    
 
+def normalize(embedding_file, target):
 
+    assert(target == 'rows' or target == 'columns')
+    
+    freqs, words, A = read_embeddings(embedding_file)    
+
+    if target == 'columns':
+        say('normalizing columns')
+        
+        for j in range(A.shape[1]):
+            A[:,j] /= numpy.linalg.norm(A[:,j])
+    
+        write_embeddings(freqs, words, A, embedding_file + '.cols_normalized')
+    
+    elif target == 'rows':
+        say('normalizing rows')
+
+        for i in range(A.shape[0]):
+            A[i,:] /= numpy.linalg.norm(A[i,:])
+            
+        write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
+    
+    
+def command(command_str):
+    say(command_str)
+    os.system(command_str)
