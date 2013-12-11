@@ -4,6 +4,7 @@ from collections import Counter
 from tools import say
 from numpy import array, zeros
 from numpy.random import randn
+from numpy.linalg import norm
 from scipy.sparse import csc_matrix 
 from scipy.linalg import qr
 from scipy.linalg import svd
@@ -202,10 +203,10 @@ class canon(object):
 
         
     def write_A(self):
-        self.rec('Storing A at: %s' % self.dirname+'/A')
+        sorted_indices = self.countsX.argsort()[::-1]
 
+        self.rec('Storing A at: %s' % self.dirname+'/A')
         with open(self.dirname+'/A', 'wb') as f:
-            sorted_indices = self.countsX.argsort()[::-1]        
             for i in sorted_indices:
                 if self.v1_w[i] == '<*>': # ignore buffer symbol
                     continue
@@ -213,7 +214,35 @@ class canon(object):
                 for j in range(len(self.A[i,:])):
                     print >> f, self.A[i,j], 
                 print >> f
-
+        
+        self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
+        Atemp = self.A
+        for i in range(Atemp.shape[0]):
+            Atemp[i,:] /= norm(Atemp[i,:])
+        with open(self.dirname+'/A.rows_normalized', 'wb') as f:
+            for i in sorted_indices:
+                if self.v1_w[i] == '<*>': # ignore buffer symbol
+                    continue
+                print >> f, self.countsX[i], self.v1_w[i], 
+                for j in range(len(Atemp[i,:])):
+                    print >> f, Atemp[i,j], 
+                print >> f
+            
+        self.rec('Storing A.cols_normalized.rows_normalized at: %s' % self.dirname+'/A.cols_normalized.rows_normalized')
+        Atemp = self.A
+        for i in range(Atemp.shape[1]):
+            Atemp[:,i] /= norm(Atemp[:,i])
+        for i in range(Atemp.shape[0]):
+            Atemp[i,:] /= norm(Atemp[i,:])
+        with open(self.dirname+'/A.cols_normalized.rows_normalized', 'wb') as f:
+            for i in sorted_indices:
+                if self.v1_w[i] == '<*>': # ignore buffer symbol
+                    continue
+                print >> f, self.countsX[i], self.v1_w[i], 
+                for j in range(len(Atemp[i,:])):
+                    print >> f, Atemp[i,j], 
+                print >> f
+        
 
     def write_B(self):
         self.rec('Storing B at: %s' % self.dirname+'/B')

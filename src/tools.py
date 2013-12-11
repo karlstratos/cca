@@ -39,17 +39,21 @@ def count_ngrams(corpus, n_vals=False):
     status = 0
     ngrams = [Counter() for n in n_vals]                                      
     queues = [deque([_buffer_ for _ in range(n-1)], n) for n in n_vals]
-    with open(corpus) as f: 
-        for line in f:
-            toks = line.split()
-            for tok in toks:
-                num_tok += 1
-                if num_tok % _status_unit_ == 0:
-                    status += 1
-                    say('/==%dm===/' % status, False)
-                for i in range(len(n_vals)):
-                    queues[i].append(tok)
-                    ngrams[i][tuple(queues[i])] += 1
+    with open(corpus) as f:
+        while True:
+            lines = f.readlines(10000000) # caching lines
+            if not lines:
+                break
+            for line in lines:
+                toks = line.split()
+                for tok in toks:
+                    num_tok += 1
+                    if num_tok % _status_unit_ == 0:
+                        status += 1
+                        say('/==%dm===/' % status, False)
+                    for i in range(len(n_vals)):
+                        queues[i].append(tok)
+                        ngrams[i][tuple(queues[i])] += 1
                  
     for i in range(len(n_vals)):
         for _ in range(n_vals[i]-1):
@@ -66,21 +70,17 @@ def count_ngrams(corpus, n_vals=False):
                 for tok in ngram:
                     print >> outf, tok,
                 print >> outf, count
-            ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
+        ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
 
 
 def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
     assert(unigrams and os.path.isfile(unigrams)) 
-
+    outfname = ngrams + '.cutoff' + str(cutoff) 
+    
     if(given_myvocab):
-        myvocab = {}
+        myvocab = scrape_words(given_myvocab)
         myvocab_hit = {}
-        with open(given_myvocab) as f:
-            for line in f:
-                toks = line.split()
-                if len(toks) == 0:
-                    continue
-                myvocab[toks[0]] = True
+        outfname += '.' + os.path.splitext(os.path.basename(given_myvocab))[0]
     
     say('Reading unigrams')
     vocab = {}
@@ -100,7 +100,7 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
             if given_myvocab and word in myvocab:
                 vocab[word] = count
                 myvocab_hit[word] = True
-
+    
     say('Will keep {} out of {} words'.format(len(vocab), num_unigrams))
     if given_myvocab:
         say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
@@ -127,8 +127,7 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
                 new_ngram.append(this_tok)
                 temp[this_tok] = True
             new_ngrams[tuple(new_ngram)] += count
-    
-    outfname = ngrams + '.cutoff' + str(cutoff) 
+        
     say('Sorting {} {}grams and writing to: {}'.format(len(new_ngrams), n, outfname))
     sorted_ngrams = sorted(new_ngrams.items(), key=lambda x: x[1], reverse=True)
     with open(outfname, 'wb') as outf:
@@ -179,8 +178,12 @@ def extract_views(ngrams):
                 print >> outf
 
 
-def perform_pca(embedding_file, pca_dim):
-    freqs, words, A = read_embeddings(embedding_file)
+def perform_pca(embedding_file, pca_dim, top):
+    freqs, words, A, _, _ = read_embeddings(embedding_file)
+    
+    if top:
+        say('will only use the top {} CCA components'.format(top))
+        A = A[:,:top]
     
     say('performing PCA to reduce dimensions from {} to {}'.format(A.shape[1], pca_dim))            
 
@@ -192,6 +195,7 @@ def perform_pca(embedding_file, pca_dim):
 def read_embeddings(embedding_file):
     freqs = {}
     words = {}
+    w2i = {}
     rep = {}
     
     say('reading {}'.format(embedding_file))
@@ -201,15 +205,16 @@ def read_embeddings(embedding_file):
             toks = line.split()
             freqs[i] = toks[0]
             words[i] = toks[1]
-            rep[i] = map(lambda x: float(x), toks[2:])
+            w2i[toks[1]] = i
+            rep[toks[1]] = map(lambda x: float(x), toks[2:])
     
     say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
 
     A = numpy.zeros((len(rep), len(rep[rep.keys()[0]])))
     for i in range(len(rep)):
-        A[i,:] = rep[i]
+        A[i,:] = rep[words[i]]
   
-    return freqs, words, A
+    return freqs, words, A, w2i, rep
 
 
 def write_embeddings(freqs, words, matrix, filename):
@@ -226,7 +231,7 @@ def normalize(embedding_file, target):
 
     assert(target == 'rows' or target == 'columns')
     
-    freqs, words, A = read_embeddings(embedding_file)    
+    freqs, words, A, _, _ = read_embeddings(embedding_file)    
 
     if target == 'columns':
         say('normalizing columns')
@@ -248,3 +253,14 @@ def normalize(embedding_file, target):
 def command(command_str):
     say(command_str)
     os.system(command_str)
+
+
+def scrape_words(given_myvocab): 
+    myvocab = {}
+    with open(given_myvocab) as f:
+        for line in f:
+            toks = line.split()
+            if len(toks) == 0:
+                continue
+            myvocab[toks[0]] = True
+    return myvocab

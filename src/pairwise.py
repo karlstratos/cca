@@ -1,9 +1,7 @@
 import argparse
 import numpy
 import tools
-import os
 from pca import pca_svd
-from canon import canon
 
 def pairwise_classify(embedding_file, anchor_words, no_balance=False):
 
@@ -141,62 +139,12 @@ def read_anchors(anchor_words):
 
 if __name__=='__main__':
     argparser = argparse.ArgumentParser('Perform binary classification between every label pair')
+    argparser.add_argument('embedding_file', type=str, help='file of embeddings')
     argparser.add_argument('anchor_words',   type=str, help='list of anchor words to classify')
-    argparser.add_argument('--embedding_file', type=str, help='file of embeddings')
     argparser.add_argument('--no_balance', action='store_true', help='don\'t balance label pairs')
-    argparser.add_argument('--optimize', type=str, help='optimize CCA parameters for this task on this n-gram file')
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
     args = argparser.parse_args()
 
     tools.set_quiet(args.quiet)
-
-    if args.embedding_file:
-        pairwise_classify(args.embedding_file, args.anchor_words, args.no_balance)
-
-    if args.optimize:
-        assert(os.path.isfile(args.optimize))
-        C = canon()     
-        C.set_views(args.optimize)
-        C.set_wantB(False)
-        C.get_stats()        
-        
-        cca_dims   = [200, 300, 400, 500]
-        kappas     = [100]
-        extra_dims = [50]
-        power_nums = [10]
-
-        best_acc = 0
-        dirs = []
-        optimal_dir = False
-
-        for cca_dim in cca_dims:
-            for kappa in kappas:
-                for extra_dim in extra_dims:
-                    for power_num in power_nums:
-                        for no_centering in [True, False]:    
-                            C.set_params(cca_dim, kappa, extra_dim, power_num, no_centering)
-                            C.start_logging()
-                            C.approx_cca()
-                            C.write_result()
-                            C.end_logging()
-
-                            dirs.append(C.dirname)
-                            tools.normalize(C.dirname+'/A', 'columns')
-                            tools.normalize(C.dirname+'/A', 'rows')
-                            tools.normalize(C.dirname+'/A.cols_normalized', 'rows')
-                            acc = pairwise_classify(C.dirname+'/A.rows_normalized', args.anchor_words, args.no_balance)
-                            acc = max(acc, pairwise_classify(C.dirname+'/A.cols_normalized.rows_normalized', args.anchor_words, args.no_balance))
-                            if acc > best_acc:
-                                best_acc = acc
-                                best_cca_dim = cca_dim
-                                best_kappa = kappa
-                                best_extra_dim = extra_dim
-                                best_power_num = power_num
-                                optimal_dir = C.dirname
-                                print 'current best: {} ({}, {}, {}, {})'.format(best_acc, best_cca_dim, best_kappa, best_extra_dim, best_power_num)    
     
-        print 'removing the suboptimal versions'
-        for d in dirs:
-            if d != optimal_dir:
-                tools.command('rm -fr ' + d)
-
+    pairwise_classify(args.embedding_file, args.anchor_words, args.no_balance)
