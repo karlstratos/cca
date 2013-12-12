@@ -5,16 +5,21 @@ from collections import Counter
 def main(args):
     trainpairs, trainwords = read_sentpairs(args.train_sents)
     testpairs, testwords = read_sentpairs(args.test_sents)
-    rep = get_rep(args.embedding_file, {word:True for word in trainwords.keys() + testwords.keys()})
+    allwords = {word:True for word in trainwords.keys() + testwords.keys()}
+    print '{} training sentences, {} test sentences, {} words'.format(len(trainpairs), len(testpairs), len(allwords))
+    print 'getting rep from {}'.format(args.embedding_file)
+    rep = get_rep(args.embedding_file, allwords, args.top)
     assert('<?>' in rep)
-    final_acc = 0
-    for _ in range(args.num_draws):
+    print 'has {} embeddings, {} dimensional'.format(len(rep), len(rep[rep.keys()[0]]))
+    avg_acc = 0
+    for round in range(args.num_draws):
+        print '{}. drawing {} random training sentences'.format(round+1, args.num_sents), 
         randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents) ]
         acc = nearest_tagging(testpairs, randpairs, rep)
         print acc
-        final_acc += acc / args.num_draws
-    print 'avg acc:', final_acc
-    return final_acc
+        avg_acc += acc / args.num_draws
+    print 'avg acc:', avg_acc
+    return avg_acc
         
 def nearest_tagging(testpairs, trainpairs, rep):
     protos = get_protos(trainpairs)
@@ -70,14 +75,15 @@ def get_protos(trainpairs):
         protos[word] = winner_label
     return protos
 
-def get_rep(embedding_file, words):
+def get_rep(embedding_file, words, top):
     rep = {}
     with open(embedding_file) as f:
         lines = f.readlines()
         for line in lines:    
             toks = line.split()
+            end_ind = len(toks) if not top else top + 2
             if toks[1] in words or toks[1] == '<?>':
-                rep[toks[1]] = numpy.array(map(lambda x: float(x), toks[2:]))
+                rep[toks[1]] = numpy.array(map(lambda x: float(x), toks[2:end_ind]))
     return rep
 
 def read_sentpairs(tagged_sents):
@@ -106,6 +112,7 @@ if __name__=='__main__':
     argparser.add_argument('--embedding_file', type=str, help='file of embeddings')
     argparser.add_argument('--num_sents', type=int, default=10, help='how many sentences to draw')
     argparser.add_argument('--num_draws', type=int, default=10, help='how many times to repeat the experiment')
+    argparser.add_argument('--top', type=int, help='use only this many top dimensions')
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
     args = argparser.parse_args()
 

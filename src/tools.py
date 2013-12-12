@@ -1,7 +1,8 @@
 import sys
 import os
 import gc
-import numpy
+from numpy import zeros
+from numpy.linalg import norm
 from collections import Counter
 from collections import deque
 from pca import pca_svd
@@ -183,7 +184,7 @@ def perform_pca(embedding_file, pca_dim, top):
     
     if top:
         say('will only use the top {} CCA components'.format(top))
-        A = A[:,:top]
+        A = A[:,:top] # THIS ISN'T CORRECT! NEED TO DO RENORMALIZATION
     
     say('performing PCA to reduce dimensions from {} to {}'.format(A.shape[1], pca_dim))            
 
@@ -210,7 +211,7 @@ def read_embeddings(embedding_file):
     
     say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
 
-    A = numpy.zeros((len(rep), len(rep[rep.keys()[0]])))
+    A = zeros((len(rep), len(rep[rep.keys()[0]])))
     for i in range(len(rep)):
         A[i,:] = rep[words[i]]
   
@@ -237,7 +238,7 @@ def normalize(embedding_file, target):
         say('normalizing columns')
         
         for j in range(A.shape[1]):
-            A[:,j] /= numpy.linalg.norm(A[:,j])
+            A[:,j] /= norm(A[:,j])
     
         write_embeddings(freqs, words, A, embedding_file + '.cols_normalized')
     
@@ -245,7 +246,7 @@ def normalize(embedding_file, target):
         say('normalizing rows')
 
         for i in range(A.shape[0]):
-            A[i,:] /= numpy.linalg.norm(A[i,:])
+            A[i,:] /= norm(A[i,:])
             
         write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
     
