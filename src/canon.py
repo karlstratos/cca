@@ -49,6 +49,8 @@ class canon(object):
                         format(os.path.basename(self.views), self.cca_dim, self.kappa, self.extra_dim, self.power_num)
         if self.no_centering:
             self.dirname += '.no_centering'
+        if self.subspace_iter:
+            self.dirname += '.subspace_iter'
         self.dirname += '.out'
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)                
