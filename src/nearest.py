@@ -5,7 +5,7 @@ from collections import Counter
 def main(args):
     trainpairs, trainwords = read_sentpairs(args.train_sents)
     testpairs, testwords = read_sentpairs(args.test_sents)
-    allwords = {word:True for word in trainwords.keys() + testwords.keys()}
+    allwords = {word:True for word in trainwords.keys() + testwords.keys()}            
     print '{} training sentences, {} test sentences, {} words'.format(len(trainpairs), len(testpairs), len(allwords))
     print 'getting rep from {}'.format(args.embedding_file)
     rep = get_rep(args.embedding_file, allwords, args.top)
@@ -15,14 +15,19 @@ def main(args):
     for round in range(args.num_draws):
         print '{}. drawing {} random training sentences'.format(round+1, args.num_sents), 
         randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents) ]
-        acc = nearest_tagging(testpairs, randpairs, rep)
+        acc = nearest_tagging(testpairs, randpairs, rep, args.output)
         print acc
         avg_acc += acc / args.num_draws
     print 'avg acc:', avg_acc
     return avg_acc
         
-def nearest_tagging(testpairs, trainpairs, rep):
+def nearest_tagging(testpairs, trainpairs, rep, output):
     protos = get_protos(trainpairs)
+    if output:
+        print '\n\n{} protos'.format(len(protos))
+        for proto in protos:
+            print proto, '\t', protos[proto]
+        outf = open(output, 'wb')
     num_instances = 0.
     num_correct = 0.
     cache = {(proto, protos[proto]):True for proto in protos}
@@ -32,9 +37,17 @@ def nearest_tagging(testpairs, trainpairs, rep):
             word = pair[0][j]
             gold_label = pair[1][j]
             nearest_proto, predicted_label = grab_nearest(word, protos, rep, cache)
-            #print word, gold_label, predicted_label, '('+nearest_proto+')'
+            if output:
+                print word, gold_label, predicted_label, '('+nearest_proto+')'
+                print >> outf, word, gold_label, predicted_label, '('+nearest_proto+')'
             if predicted_label == gold_label:
                 num_correct += 1
+        if output:
+            print
+            print >> outf
+
+    if output:
+        outf.close()            
     acc = num_correct / num_instances
     return acc
 
@@ -101,7 +114,7 @@ def read_sentpairs(tagged_sents):
                 words[toks[0]] = True
                 sentpair[0].append(toks[0])
                 sentpair[1].append(toks[1])
-        if len(toks) == 0 and len(sentpair[0]) != 0:
+        if len(sentpair[0]) != 0:
             sentpairs.append(sentpair)
     return sentpairs, words
 
@@ -114,6 +127,7 @@ if __name__=='__main__':
     argparser.add_argument('--num_draws', type=int, default=10, help='how many times to repeat the experiment')
     argparser.add_argument('--top', type=int, help='use only this many top dimensions')
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
+    argparser.add_argument('--output', type=str, help='output predictions in this file')
     args = argparser.parse_args()
 
     acc = main(args)
