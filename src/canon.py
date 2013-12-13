@@ -29,17 +29,19 @@ class canon(object):
         self.wantB = wantB
 
 
-    def set_params(self, cca_dim, kappa, extra_dim, power_num, no_centering):
+    def set_params(self, cca_dim, kappa, extra_dim, power_num, no_centering, subspace_iter):
         say('cca_dim: {}'.format(cca_dim))
         say('kappa: {}'.format(kappa))
         say('extra_dim: {}'.format(extra_dim))
         say('power_num: {}'.format(power_num))
         say('no_centering: {}'.format(no_centering))
+        say('subspace_iter: {}'.format(subspace_iter))
         self.cca_dim = cca_dim
         self.kappa = kappa
         self.extra_dim = extra_dim
         self.power_num = power_num
         self.no_centering = no_centering
+        self.subspace_iter = subspace_iter
 
                 
     def start_logging(self):
@@ -160,19 +162,32 @@ class canon(object):
         self.rec('\tComputing Z = O * T (dimensions: {} x {})'.format(d1, T.shape[1]))
         Z = XY * T - X * (Y.T * T)            
         del T; gc.collect()
-        
-        self.rec('\tPower iteration: keep computing Z = (O * O\') * Z')
-        for i in range(self.power_num): # power iteration
-            self.rec('\t\tIteration {} / {}'.format(i+1, self.power_num)) 
-            t1 = XY * (XY.T * Z)
-            t2 = XY * (Y * (X.T * Z))
-            t3 = X * (Y.T * (XY.T * Z))
-            t4 = X * (Y.T * (Y * (X.T * Z)))
-            Z = t1 - t2 - t3 + t4
-        
-        self.rec('\tObtain an orthonormal basis Q from QR(Z) = Q * R')
-        Q, _ = qr(Z, mode='economic')
-        del t1; del t2; del t3; del t4; del Z; gc.collect()
+
+        if self.subspace_iter:        
+            # randomized subspace iteration
+            self.rec('\tSubspace iteration: keep computing subspace of O')
+            Q, _ = qr(Z, mode='economic')
+            for i in range(self.power_num): # power iteration
+                self.rec('\t\tIteration {} / {}'.format(i+1, self.power_num))
+                Z = XY.T * Q - Y * (X.T * Q)
+                Q, _ = qr(Z, mode='economic')
+                Z = XY * Q - X * (Y.T * Q)
+                Q, _ = qr(Z, mode='economic')
+            
+        else:
+            # randomized power iteration
+            self.rec('\tPower iteration: keep computing Z = (O * O\') * Z')
+            for i in range(self.power_num): # power iteration
+                self.rec('\t\tIteration {} / {}'.format(i+1, self.power_num)) 
+                t1 = XY * (XY.T * Z)
+                t2 = XY * (Y * (X.T * Z))
+                t3 = X * (Y.T * (XY.T * Z))
+                t4 = X * (Y.T * (Y * (X.T * Z)))
+                Z = t1 - t2 - t3 + t4
+            
+            self.rec('\tObtain an orthonormal basis Q from QR(Z) = Q * R')
+            Q, _ = qr(Z, mode='economic')
+            del t1; del t2; del t3; del t4; del Z; gc.collect()
     
         # obtain a smaller matrix and do a thin svd
         self.rec('\tPerform SVD on B = Q\' * O (now {} x {}) (vs. original {} x {})'.format(Q.shape[1], d2, d1, d2))
