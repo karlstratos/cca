@@ -6,9 +6,11 @@ from src.tools import extract_views
 from src.tools import normalize_rows
 from src.tools import perform_pca
 from src.tools import command
+from src.tools import augment_spelling
 from src.canon import canon
 
 def main(args):
+    
     set_quiet(args.quiet)
     
     if args.corpus:
@@ -21,10 +23,12 @@ def main(args):
             extract_views(args.ngrams)
     
     if args.views:
+        if args.spelling:
+            augment_spelling(args.views, args.unigrams, args.cutoff, args.weight)
         assert(args.m and args.kappa)
         C = canon()     
         C.get_stats(args.views)        
-        C.set_params(args.m, args.kappa)
+        C.set_params(args.m, args.kappa, args.randsvd)
         C.start_logging()        
         C.approx_cca()
         C.write_result()
@@ -53,8 +57,11 @@ if __name__=='__main__':
     argparser.add_argument('--extract_views', action='store_true',  help='extract views from n-grams')
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--views',         type=str,             help='views to do CCA on')
+    argparser.add_argument('--spelling',      action='store_true',  help='augment views with spelling features')
+    argparser.add_argument('--weight',        type=float,           help='weight for spelling features')
     argparser.add_argument('--m',             type=int,             help='number of CCA dimensions')
     argparser.add_argument('--kappa',         type=int,             help='smoothing parameter')
+    argparser.add_argument('--randsvd',       action='store_true',  help='randomized approximate SVD')
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--embedding_file', type=str,            help='file containing embeddings')
     argparser.add_argument('--normalize_rows', action='store_true', help='normalize the rows of the embedding matrix')

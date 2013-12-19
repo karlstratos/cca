@@ -7,6 +7,7 @@ from tools import inline_print
 from tools import compute_invsqrt_diag_cov
 from tools import update_mapping
 from pca import pca_svd
+from svd import randsvd
 from numpy import array
 from sparsesvd import sparsesvd
 from numpy.linalg import norm
@@ -70,7 +71,8 @@ class canon(object):
                 
                 if linenum % 1000 is 0:
                     inline_print('Processing line %i of %i' % (linenum, num_lines))
-
+        
+        inline_print('\n')
         self.massXY = csc_matrix((self.massXY.values(), zip(*self.massXY.keys())), shape=(len(self.sqmassX), len(self.sqmassY)))
         self.sqmassX = array([self.sqmassX[j] for j in range(len(self.sqmassX))])
         self.sqmassY = array([self.sqmassY[j] for j in range(len(self.sqmassY))])            
@@ -78,11 +80,13 @@ class canon(object):
         with open(pickle_file, 'wb') as outf:
             cPickle.dump((self.sX, self.sY, self.iX, self.iY, self.massXY, self.sqmassX, self.sqmassY, self.M), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
     
-    def set_params(self, m, kappa):
+    def set_params(self, m, kappa, randsvd):
         say('m: {}'.format(m))
         say('kappa: {}'.format(kappa))
+        say('randsvd: {}'.format(randsvd))
         self.m = m
         self.kappa = kappa
+        self.randsvd = randsvd
 
     def rec(self, string, newline=True):
         if newline:
@@ -96,6 +100,8 @@ class canon(object):
     def start_logging(self):
         self.dirname = 'output/{}.m{}.kappa{}'.\
                         format(os.path.basename(self.views), self.m, self.kappa)
+        if self.randsvd:
+            self.dirname += '.randsvd'
         self.dirname += '.out'
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)                
@@ -120,8 +126,12 @@ class canon(object):
         
         self.rec('\tM has dimensions {} x {} ({} nonzeros)'.format(M.shape[0], M.shape[1], M.nnz))
 
-        self.rec('2. Exact thin SVD on M')
-        Ut, self.corr, _ = sparsesvd(M, self.m)
+        if not self.randsvd:
+            self.rec('2. Exact thin SVD on M')
+            Ut, self.corr, _ = sparsesvd(M, self.m)
+        else:
+            self.rec('2. Randomized thin SVD on M')
+            Ut, self.corr, _ = randsvd(M, self.m)
     
         self.rec('3. De-whitening')
         self.A = invsqrt_covX * Ut.T;

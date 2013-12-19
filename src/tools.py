@@ -165,6 +165,74 @@ def extract_views(ngrams):
                     inline_print('Processing line %i of %i' % (linenum, num_lines))
     inline_print('\n')
 
+def spelling_phi(tok):
+    holder = {}
+    holder['p1='+tok[0]] = True
+    holder['s1='+tok[-1]] = True
+    if len(tok) > 1:
+        holder['p2='+tok[:2]] = True
+        holder['s2='+tok[-2:]] = True
+    if len(tok) > 2:
+        holder['p3='+tok[:3]] = True
+        holder['s3='+tok[-3:]] = True
+    if len(tok) > 3:
+        holder['p4='+tok[:4]] = True
+        holder['s4='+tok[-4:]] = True
+    return holder
+
+def augment_spelling(views, unigrams, cutoff, weight):
+    assert(os.path.isfile(views) and os.path.isfile(unigrams) and cutoff and weight)
+    say('Reading unigrams')
+    spelling_count = Counter()
+    with open(unigrams) as f:
+        for line in f:
+            toks = line.split()
+            if len(toks) != 2:
+                continue
+            word = toks[0]
+            count = int(toks[1])
+            holder = spelling_phi(word)
+            for feat in holder:
+                spelling_count[feat] += count
+                
+    sorted_spelling_feats = sorted(spelling_count.items(), key=lambda x: x[1], reverse=True)
+    spelling_vocab = {}
+    for feat, _ in sorted_spelling_feats[:cutoff]:
+        spelling_vocab[feat] = True
+    
+    say('Augment views {} with spelling features: using weight {}'.format(views, weight))
+    num_lines = count_file_lines(views)
+    linenum = 0
+    with open(views+'.spelling', 'wb') as outf:
+        with open(views) as f:
+            for line in f:
+                linenum += 1
+                toks = line.split()
+                curtain = toks.index('|:|')
+                
+                print >> outf, toks[0], # count
+                # view 1 features
+                for i in range(1, curtain):
+                    print >> outf, toks[i], # token itself
+                    holder = spelling_phi(toks[i])
+                    for feat in holder:
+                        if feat in spelling_vocab:
+                            print >> outf, feat + '<val>' + str(weight),
+                
+                print >> outf, '|:|',
+                
+                # view 2 features
+                for i in range(curtain+1, len(toks)):
+                    print >> outf, toks[i], # token itself
+                    holder = spelling_phi(toks[i][:-4])
+                    for feat in holder:
+                        if feat in spelling_vocab:
+                            print >> outf, feat + toks[i][-4:] + '<val>' + str(weight),
+                print >> outf
+                if linenum % 1000 is 0:
+                    inline_print('Processing line %i of %i' % (linenum, num_lines))
+        inline_print('\n')
+
 def update_mapping(raw_feat_tok, smap, imap, featval, head):
     feat_obj = raw_feat_tok.split('<val>')
     featstr = feat_obj[0]
@@ -261,3 +329,6 @@ def scrape_words(given_myvocab):
                 continue
             myvocab[toks[0]] = True
     return myvocab
+
+
+
