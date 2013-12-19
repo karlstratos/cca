@@ -25,6 +25,7 @@ def main(args):
     if args.views:
         if args.spelling:
             augment_spelling(args.views, args.unigrams, args.cutoff, args.weight)
+            return
         assert(args.m and args.kappa)
         C = canon()     
         C.get_stats(args.views)        

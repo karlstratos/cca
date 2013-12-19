@@ -4,10 +4,13 @@ from scipy.linalg import svd
 from scipy.sparse import csc_matrix
 from numpy import allclose, outer
 
+extra_dim = 50
+power_num = 5
+
 def randsvd(M, m):
-    Z = M * randn(M.shape[1], 2 * m) 
+    Z = M * randn(M.shape[1], m + extra_dim) 
     Q, _ = qr(Z, mode='economic')
-    for _ in range(5):
+    for _ in range(power_num):
         Z = M.T * Q
         Q, _ = qr(Z, mode='economic')
         Z = M * Q 
@@ -23,10 +26,10 @@ def randsvd(M, m):
 
 
 def randsvd_centered(M, v1, v2, m):
-    T = randn(M.shape[1], 2 * m) 
+    T = randn(M.shape[1], m + extra_dim) 
     Z = M * T - v1 * (v2.T * T)            
     Q, _ = qr(Z, mode='economic')
-    for _ in range(5):
+    for _ in range(power_num):
         Z = M.T * Q - v2 * (v1.T * Q)
         Q, _ = qr(Z, mode='economic')
         Z = M * Q - v1 * (v2.T * Q)
@@ -46,7 +49,7 @@ if __name__=='__main__':
     M = randn(500,1000)
     v1 = randn(500,1)
     v2 = randn(1000,1)
-    m = 300
+    m = 100
     
     O = M - outer(v1, v2)
     U_svd, svals_svd, Vt_svd = svd(O)

@@ -61,7 +61,7 @@ class canon(object):
                     x, x_head = update_mapping(toks[i], self.sX, self.iX, featvalX, x_head)
                     self.sqmassX[x] += count * pow(featvalX[x], 2)
                     xs.append(x)
-                
+
                 # view 2 features
                 for i in range(curtain+1, len(toks)):
                     y, y_head = update_mapping(toks[i], self.sY, self.iY, featvalY, y_head)
