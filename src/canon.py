@@ -129,12 +129,13 @@ class canon(object):
         if not self.randsvd:
             self.rec('2. Exact thin SVD on M')
             Ut, self.corr, _ = sparsesvd(M, self.m)
+            U = Ut.T
         else:
             self.rec('2. Randomized thin SVD on M')
-            Ut, self.corr, _ = randsvd(M, self.m)
+            U, self.corr, _ = randsvd(M, self.m)
     
         self.rec('3. De-whitening')
-        self.A = invsqrt_covX * Ut.T;
+        self.A = invsqrt_covX * U;
     
     def write_result(self):
         self.write_corr()
