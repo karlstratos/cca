@@ -4,34 +4,24 @@ import tools
 from pca import pca_svd
 
 def pairwise_classify(embedding_file, anchor_words, no_balance=False):
-
     wdic, tdic = read_anchors(anchor_words)
-
     rep = read_rep(embedding_file, tdic) # only read embeddings that we need
-                    
     acc_all = 0.
     check = {}
-    
     for tag1 in wdic:
         for tag2 in wdic:            
             if tag1 != tag2 and not (tag2, tag1) in check:
-                
                 if no_balance:
                     acc_all += classify(tag1, tag2, wdic[tag1], wdic[tag2], rep, no_balance)
-                
                 else: 
                     mi = min(len(wdic[tag1]), len(wdic[tag2])) # equal number of words for each side                    
                     acc_all += classify(tag1, tag2, wdic[tag1][:mi], wdic[tag2][:mi], rep, no_balance)
-                
                 check[(tag1, tag2)] = True
-    
     acc_all /= len(check)
     tools.say('overall acc: {}'.format(acc_all))
     return acc_all
-                    
-                    
+                                        
 def classify(tag1, tag2, wdic1, wdic2, rep, no_balance):
-    
     true_tag = {}
     num1 = len(wdic1)
     num2 = len(wdic2)
@@ -103,26 +93,19 @@ def classify(tag1, tag2, wdic1, wdic2, rep, no_balance):
     tools.say('{} {}, {} {}'.format(num1, tag1, num2, tag2))
     return best_acc
 
-
 def read_rep(embedding_file, tdic):
-
     rep = {}
-    
     with open(embedding_file) as f:
         for line in f:    
             toks = line.split()
             word = toks[1]
             if word in tdic or word == '<?>':
                 rep[word] = map(lambda x: float(x), toks[2:])
-
     return rep
 
-
 def read_anchors(anchor_words):
-
     wdic = {}
     tdic = {}
-    
     with open(anchor_words) as f:
         for line in f:
             toks = line.split()
@@ -133,9 +116,7 @@ def read_anchors(anchor_words):
                     wdic[tag] = [] 
                 wdic[tag].append(word) # words assumed ordered in decreasing frequency
                 tdic[word] = tag
-
     return wdic, tdic
-
 
 if __name__=='__main__':
     argparser = argparse.ArgumentParser('Perform binary classification between every label pair')
@@ -146,5 +127,4 @@ if __name__=='__main__':
     args = argparser.parse_args()
 
     tools.set_quiet(args.quiet)
-    
     pairwise_classify(args.embedding_file, args.anchor_words, args.no_balance)

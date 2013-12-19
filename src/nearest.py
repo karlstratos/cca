@@ -11,9 +11,15 @@ def main(args):
     rep = get_rep(args.embedding_file, allwords, args.top)
     assert('<?>' in rep)
     print 'has {} embeddings, {} dimensional'.format(len(rep), len(rep[rep.keys()[0]]))
+    if args.longest:
+        print 'drawing {} longest training sentences'.format(args.num_sents) 
+        longestpairs = sorted(trainpairs, key=lambda x: len(x[0]), reverse=True)[:args.num_sents]
+        acc = nearest_tagging(testpairs, longestpairs, rep, args.output)
+        print 'acc::', acc
+        return acc
     avg_acc = 0
-    for round in range(args.num_draws):
-        print '{}. drawing {} random training sentences'.format(round+1, args.num_sents), 
+    for drawnum in range(args.num_draws):
+        print '{}. drawing {} random training sentences'.format(drawnum+1, args.num_sents), 
         randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents) ]
         acc = nearest_tagging(testpairs, randpairs, rep, args.output)
         print acc
@@ -123,6 +129,7 @@ if __name__=='__main__':
     argparser.add_argument('train_sents', type=str, help='file of tagged sentences for training')
     argparser.add_argument('test_sents', type=str, help='file of tagged sentences for testing')
     argparser.add_argument('--embedding_file', type=str, help='file of embeddings')
+    argparser.add_argument('--longest', action='store_true', help='use the longest sentences')
     argparser.add_argument('--num_sents', type=int, default=10, help='how many sentences to draw')
     argparser.add_argument('--num_draws', type=int, default=10, help='how many times to repeat the experiment')
     argparser.add_argument('--top', type=int, help='use only this many top dimensions')

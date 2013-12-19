@@ -1,33 +1,20 @@
+import subprocess
 import sys
 import os
-import gc
 from numpy import zeros
 from numpy.linalg import norm
 from collections import Counter
 from collections import deque
 from pca import pca_svd
+from scipy.sparse import csc_matrix 
 
-# shared variables 
 _quiet_ = False
 _buffer_ = '<*>'
 _rare_ = '<?>'
-_status_unit_ = 1000000
-
 
 def set_quiet(quiet):
     global _quiet_
     _quiet_ = quiet
-
-
-def say(string, newline=True):
-    if not _quiet_:        
-        if newline:
-            print string
-            sys.stdout.flush()
-        else:
-            print string,
-            sys.stdout.flush()
-
 
 def count_ngrams(corpus, n_vals=False):
     assert(os.path.isfile(corpus))    
@@ -35,9 +22,7 @@ def count_ngrams(corpus, n_vals=False):
         answer = raw_input('Type in the values of n (e.g., \"1 3\"): ')        
         n_vals = [int(n) for n in answer.split()]
     
-    say('Counting... ', False)
     num_tok = 0
-    status = 0
     ngrams = [Counter() for n in n_vals]                                      
     queues = [deque([_buffer_ for _ in range(n-1)], n) for n in n_vals]
     with open(corpus) as f:
@@ -49,9 +34,8 @@ def count_ngrams(corpus, n_vals=False):
                 toks = line.split()
                 for tok in toks:
                     num_tok += 1
-                    if num_tok % _status_unit_ == 0:
-                        status += 1
-                        say('/==%dm===/' % status, False)
+                    if num_tok % 1000 is 0:
+                        inline_print('Processed %i tokens' % (num_tok))
                     for i in range(len(n_vals)):
                         queues[i].append(tok)
                         ngrams[i][tuple(queues[i])] += 1
@@ -71,8 +55,6 @@ def count_ngrams(corpus, n_vals=False):
                 for tok in ngram:
                     print >> outf, tok,
                 print >> outf, count
-        ngrams[i] = {}; del sorted_ngrams; gc.collect() # try to free some memory
-
 
 def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
     assert(unigrams and os.path.isfile(unigrams)) 
@@ -115,9 +97,11 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
 
     new_ngrams = Counter()    
     n = 0
-    temp = {}
+    num_lines = count_file_lines(ngrams)
+    linenum = 0
     with open(ngrams) as f:
         for line in f:
+            linenum += 1
             toks = line.split()
             ngram = toks[:-1]
             n = len(ngram)
@@ -126,17 +110,17 @@ def cutoff_rare(ngrams, cutoff, unigrams, given_myvocab):
             for gram in ngram:
                 this_tok = gram if gram in vocab else _rare_
                 new_ngram.append(this_tok)
-                temp[this_tok] = True
             new_ngrams[tuple(new_ngram)] += count
+            if linenum % 1000 is 0:
+                inline_print('Processing line %i of %i' % (linenum, num_lines))
         
-    say('Sorting {} {}grams and writing to: {}'.format(len(new_ngrams), n, outfname))
+    say('\nSorting {} {}grams and writing to: {}'.format(len(new_ngrams), n, outfname))
     sorted_ngrams = sorted(new_ngrams.items(), key=lambda x: x[1], reverse=True)
     with open(outfname, 'wb') as outf:
         for ngram, count in sorted_ngrams:
             for gram in ngram:
                 print >> outf, gram,
             print >> outf, count
-            
 
 def phi(token, rel_position):
     if rel_position > 0:
@@ -149,48 +133,80 @@ def phi(token, rel_position):
     holder = {feat : True}
     return holder
 
-
 def extract_views(ngrams):
     outfname = ngrams + '.featurized'
     say('Writing the featurized file to: ' + outfname)
+    
+    num_lines = count_file_lines(ngrams)
+    linenum = 0    
     with open(outfname, 'wb') as outf:
         with open(ngrams) as f:
             for line in f:
+                linenum += 1
                 toks = line.split()
                 ngram = toks[:-1]
                 count = int(toks[-1])
                 center = len(ngram) / 2 # position of the current word
                 print >> outf, count,
 
-                # definition of view 1
                 view1_holder = phi(ngram[center], 0)
                 for view1f in view1_holder:
                     print >> outf, view1f,
-                
+                    
                 print >> outf, '|:|',
                 
-                # definition of view 2
-                for i in range(len(ngram)):
+                for i in range(len(ngram)): 
                     if i != center:
                         view2_holder = phi(ngram[i], i-center)
                         for view2f in view2_holder:
                             print >> outf, view2f,
-
                 print >> outf
+                if linenum % 1000 is 0:
+                    inline_print('Processing line %i of %i' % (linenum, num_lines))
+    inline_print('\n')
 
+def update_mapping(raw_feat_tok, smap, imap, featval, head):
+    feat_obj = raw_feat_tok.split('<val>')
+    featstr = feat_obj[0]
+    if not featstr in smap:
+        smap[featstr] = head
+        imap[head] = featstr
+        featval[head] = 1 if len(feat_obj) == 1 else float(feat_obj[1]) 
+        head += 1
+    return smap[featstr], head    
+    
+def compute_invsqrt_diag_cov(sqmass, kappa, M):
+    smoothed_variances = (sqmass + kappa) / M 
+    diags = [i for i in range(len(sqmass))]
+    invsqrt_cov = csc_matrix((pow(smoothed_variances, -.5), (diags, diags)), shape=(len(sqmass), len(sqmass)))     
+    return invsqrt_cov
+
+def inline_print(string):
+    sys.stderr.write("\r\t%s" % (string))
+    sys.stderr.flush()
+
+def count_file_lines(fname):
+    p = subprocess.Popen(['wc', '-l', fname], stdout=subprocess.PIPE, 
+                                              stderr=subprocess.PIPE)
+    result, err = p.communicate()
+    if p.returncode != 0:
+        raise IOError(err)
+    return int(result.strip().split()[0])
+
+def say(string, newline=True):
+    if not _quiet_:        
+        if newline:
+            print string
+            sys.stdout.flush()
+        else:
+            print string,
+            sys.stdout.flush()
 
 def perform_pca(embedding_file, pca_dim, top):
     freqs, words, A, _, _ = read_embeddings(embedding_file)
-    
-    if top:
-        say('will only use the top {} CCA components'.format(top))
-        A = A[:,:top] # THIS ISN'T CORRECT! NEED TO DO RENORMALIZATION
-    
     say('performing PCA to reduce dimensions from {} to {}'.format(A.shape[1], pca_dim))            
-
     pca_trans, _, _ = pca_svd(A) 
     A_pca = pca_trans[:,:pca_dim]
-    
     write_embeddings(freqs, words, A_pca, embedding_file + '.pca' + str(pca_dim))
 
 def read_embeddings(embedding_file):
@@ -217,9 +233,7 @@ def read_embeddings(embedding_file):
   
     return freqs, words, A, w2i, rep
 
-
 def write_embeddings(freqs, words, matrix, filename):
-
     with open(filename, 'wb') as outf:
         for i in range(len(words)):
             print >> outf, freqs[i], words[i],
@@ -227,34 +241,16 @@ def write_embeddings(freqs, words, matrix, filename):
                 print >> outf, val,
             print >> outf
     
-
-def normalize(embedding_file, target):
-
-    assert(target == 'rows' or target == 'columns')
-    
+def normalize_rows(embedding_file):
     freqs, words, A, _, _ = read_embeddings(embedding_file)    
-
-    if target == 'columns':
-        say('normalizing columns')
-        
-        for j in range(A.shape[1]):
-            A[:,j] /= norm(A[:,j])
-    
-        write_embeddings(freqs, words, A, embedding_file + '.cols_normalized')
-    
-    elif target == 'rows':
-        say('normalizing rows')
-
-        for i in range(A.shape[0]):
-            A[i,:] /= norm(A[i,:])
-            
-        write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
-    
+    say('normalizing rows')
+    for i in range(A.shape[0]):
+        A[i,:] /= norm(A[i,:])
+    write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
     
 def command(command_str):
     say(command_str)
     os.system(command_str)
-
 
 def scrape_words(given_myvocab): 
     myvocab = {}
