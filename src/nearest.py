@@ -1,6 +1,8 @@
 import argparse
 import numpy
+import re
 from collections import Counter
+from tools import spelling_phi
 
 def main(args):
     trainpairs, trainwords = read_sentpairs(args.train_sents)
@@ -8,26 +10,26 @@ def main(args):
     allwords = {word:True for word in trainwords.keys() + testwords.keys()}            
     print '{} training sentences, {} test sentences, {} words'.format(len(trainpairs), len(testpairs), len(allwords))
     print 'getting rep from {}'.format(args.embedding_file)
-    rep = get_rep(args.embedding_file, allwords, args.top)
+    rep, weight = get_rep(args.embedding_file, allwords, args.top)
     assert('<?>' in rep)
     print 'has {} embeddings, {} dimensional'.format(len(rep), len(rep[rep.keys()[0]]))
     if args.longest:
         print 'drawing {} longest training sentences'.format(args.num_sents) 
         longestpairs = sorted(trainpairs, key=lambda x: len(x[0]), reverse=True)[:args.num_sents]
-        acc = nearest_tagging(testpairs, longestpairs, rep, args.output)
+        acc = nearest_tagging(testpairs, longestpairs, rep, args.output, weight)
         print 'acc::', acc
         return acc
     avg_acc = 0
     for drawnum in range(args.num_draws):
         print '{}. drawing {} random training sentences'.format(drawnum+1, args.num_sents), 
         randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents) ]
-        acc = nearest_tagging(testpairs, randpairs, rep, args.output)
+        acc = nearest_tagging(testpairs, randpairs, rep, args.output, weight)
         print acc
         avg_acc += acc / args.num_draws
     print 'avg acc:', avg_acc
     return avg_acc
         
-def nearest_tagging(testpairs, trainpairs, rep, output):
+def nearest_tagging(testpairs, trainpairs, rep, output, weight):
     protos = get_protos(trainpairs)
     if output:
         print '\n\n{} protos'.format(len(protos))
@@ -36,13 +38,14 @@ def nearest_tagging(testpairs, trainpairs, rep, output):
         outf = open(output, 'wb')
     num_instances = 0.
     num_correct = 0.
-    cache = {(proto, protos[proto]):True for proto in protos}
+    cache = {}
+    proto_cache = {} 
     for pair in testpairs:
         for j in range(len(pair[0])):
             num_instances += 1
             word = pair[0][j]
             gold_label = pair[1][j]
-            nearest_proto, predicted_label = grab_nearest(word, protos, rep, cache)
+            nearest_proto, predicted_label = grab_nearest(word, protos, rep, cache, proto_cache, weight)
             if output:
                 print word, gold_label, predicted_label, '('+nearest_proto+')'
                 print >> outf, word, gold_label, predicted_label, '('+nearest_proto+')'
@@ -57,16 +60,31 @@ def nearest_tagging(testpairs, trainpairs, rep, output):
     acc = num_correct / num_instances
     return acc
 
-def grab_nearest(word, protos, rep, cache):
+def grab_nearest(word, protos, rep, cache, proto_cache, weight):
     if word in cache:
         return cache[word]
     x = rep[word] if word in rep else rep['<?>']
+    holder = spelling_phi(word)
+    print word
+    for feat in holder:
+        if feat in rep:
+            print feat
+            x += weight * rep[feat]
+    print 
     min_dist = float('inf')
     closest_proto = False
     for proto in protos:
         if not proto in rep:
             continue
-        xp = rep[proto]
+        if proto in proto_cache:
+            xp = proto_cache[proto]
+        else:
+            xp = rep[proto]
+            holder = spelling_phi(proto)
+            for feat in holder:
+                if feat in rep:
+                    xp += weight * rep[feat]
+            proto_cache[proto] = xp
         dist = numpy.linalg.norm(x - xp)
         if dist < min_dist:
             min_dist = dist
@@ -95,15 +113,17 @@ def get_protos(trainpairs):
     return protos
 
 def get_rep(embedding_file, words, top):
+    matchObj = re.match(r'(.*)cutoff(.*)_weight(.*)\.m(.*)', embedding_file)
+    weight = float(matchObj.group(3)) if matchObj else 1
     rep = {}
     with open(embedding_file) as f:
         lines = f.readlines()
         for line in lines:    
             toks = line.split()
             end_ind = len(toks) if not top else top + 2
-            if toks[1] in words or toks[1] == '<?>':
+            if toks[1] in words or toks[1] == '<?>' or (len(toks[1]) > 3 and toks[1][2] == '='):
                 rep[toks[1]] = numpy.array(map(lambda x: float(x), toks[2:end_ind]))
-    return rep
+    return rep, weight
 
 def read_sentpairs(tagged_sents):
     words = {}

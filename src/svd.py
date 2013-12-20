@@ -24,7 +24,6 @@ def randsvd(M, m):
     
     return U, svals, V
 
-
 def randsvd_centered(M, v1, v2, m):
     T = randn(M.shape[1], m + extra_dim) 
     Z = M * T - v1 * (v2.T * T)            
@@ -44,12 +43,11 @@ def randsvd_centered(M, v1, v2, m):
     
     return U, svals, V
 
-
 if __name__=='__main__':
-    M = randn(500,1000)
-    v1 = randn(500,1)
-    v2 = randn(1000,1)
-    m = 100
+    M = randn(100,300)
+    v1 = randn(100,1)
+    v2 = randn(300,1)
+    m = 60
     
     O = M - outer(v1, v2)
     U_svd, svals_svd, Vt_svd = svd(O)
@@ -61,4 +59,4 @@ if __name__=='__main__':
     U_approx2, svals_approx2, Vt_approx2 = randsvd_centered(csc_matrix(M), csc_matrix(v1), csc_matrix(v2), m)
     
     assert(allclose(svals_svd, svals_approx1) and allclose(svals_svd, svals_approx2))
-    
+

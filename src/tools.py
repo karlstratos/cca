@@ -203,7 +203,7 @@ def augment_spelling(views, unigrams, cutoff, weight):
     say('Augment views {} with spelling features: using weight {}'.format(views, weight))
     num_lines = count_file_lines(views)
     linenum = 0
-    with open(views+'.spelling', 'wb') as outf:
+    with open(views+'.spelling_cutoff'+str(cutoff)+'_weight'+str(weight), 'wb') as outf:
         with open(views) as f:
             for line in f:
                 linenum += 1
