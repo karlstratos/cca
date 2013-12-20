@@ -11,6 +11,8 @@ def main(args):
     print '{} training sentences, {} test sentences, {} words'.format(len(trainpairs), len(testpairs), len(allwords))
     print 'getting rep from {}'.format(args.embedding_file)
     rep, weight = get_rep(args.embedding_file, allwords, args.top)
+    if args.weight:
+        weight = args.weight
     assert('<?>' in rep)
     print 'has {} embeddings, {} dimensional'.format(len(rep), len(rep[rep.keys()[0]]))
     if args.longest:
@@ -151,6 +153,7 @@ if __name__=='__main__':
     argparser.add_argument('--num_sents', type=int, default=10, help='how many sentences to draw')
     argparser.add_argument('--num_draws', type=int, default=10, help='how many times to repeat the experiment')
     argparser.add_argument('--top', type=int, help='use only this many top dimensions')
+    argparser.add_argument('--weight', type=float, help='manually specify the weight for the spelling features')
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
     argparser.add_argument('--output', type=str, help='output predictions in this file')
     args = argparser.parse_args()
