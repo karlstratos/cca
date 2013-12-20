@@ -65,12 +65,10 @@ def grab_nearest(word, protos, rep, cache, proto_cache, weight):
         return cache[word]
     x = rep[word] if word in rep else rep['<?>']
     holder = spelling_phi(word)
-    print word
     for feat in holder:
         if feat in rep:
-            print feat
             x += weight * rep[feat]
-    print 
+
     min_dist = float('inf')
     closest_proto = False
     for proto in protos:
