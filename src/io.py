@@ -1,0 +1,91 @@
+import os
+import sys
+import subprocess
+from numpy import array
+from numpy import zeros
+from numpy.linalg import norm
+
+_quiet_ = False
+
+def set_quiet(quiet):
+    global _quiet_
+    _quiet_ = quiet
+
+def say(string, newline=True):
+    if not _quiet_:        
+        if newline:
+            print string
+            sys.stdout.flush()
+        else:
+            print string,
+            sys.stdout.flush()
+
+def command(command_str):
+    say(command_str)
+    os.system(command_str)
+
+def inline_print(string):
+    if not _quiet_:
+        sys.stderr.write('\r\t%s' % (string))
+        sys.stderr.flush()
+
+def wc_l(fname):
+    p = subprocess.Popen(['wc', '-l', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result, err = p.communicate()
+    if p.returncode != 0:
+        raise IOError(err)
+    return int(result.strip().split()[0])
+
+def read_embeddings(embedding_file, top=None, vocab=None):
+    freqs = {}
+    words = {}
+    w2i = {}
+    i2w = {}
+    rep = {}
+    
+    say('reading {}'.format(embedding_file))
+    i = 0
+    with open(embedding_file) as f:
+        for line in f:    
+            toks = line.split()
+            if vocab and (not toks[1] in vocab) and (not toks[1] != '<?>'):
+                continue
+            freqs[i] = toks[0]
+            words[i] = toks[1]
+            w2i[toks[1]] = i
+            i2w[i] = toks[1]
+            end_ind = len(toks) if not top else top + 2
+            rep[toks[1]] = array(map(lambda x: float(x), toks[2:end_ind]))
+            i += 1
+    
+    say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
+    A = zeros((len(rep), len(rep[rep.keys()[0]])))
+    for i in range(len(rep)):
+        A[i,:] = rep[words[i]]
+    return freqs, words, w2i, i2w, rep, A 
+
+def write_embeddings(freqs, words, matrix, filename):
+    with open(filename, 'wb') as outf:
+        for i in range(len(words)):
+            print >> outf, freqs[i], words[i],
+            for val in matrix[i,:]:
+                print >> outf, val,
+            print >> outf
+
+def normalize_rows(embedding_file):
+    freqs, words, A, _, _ = read_embeddings(embedding_file)    
+    say('normalizing rows')
+    for i in range(A.shape[0]):
+        A[i,:] /= norm(A[i,:])
+    write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
+    
+def scrape_words(sentences): 
+    myvocab = {}
+    with open(sentences) as f:
+        for line in f:
+            toks = line.split()
+            if len(toks) == 0:
+                continue
+            myvocab[toks[0]] = True
+    return myvocab
+    
