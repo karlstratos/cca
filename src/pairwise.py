@@ -1,6 +1,7 @@
 import argparse
 import numpy
-import tools
+from io import say
+from io import set_quiet
 from pca import pca_svd
 
 def pairwise_classify(embedding_file, anchor_words, no_balance=False):
@@ -18,7 +19,7 @@ def pairwise_classify(embedding_file, anchor_words, no_balance=False):
                     acc_all += classify(tag1, tag2, wdic[tag1][:mi], wdic[tag2][:mi], rep, no_balance)
                 check[(tag1, tag2)] = True
     acc_all /= len(check)
-    tools.say('overall acc: {}'.format(acc_all))
+    say('overall acc: {}'.format(acc_all))
     return acc_all
                                         
 def classify(tag1, tag2, wdic1, wdic2, rep, no_balance):
@@ -89,8 +90,8 @@ def classify(tag1, tag2, wdic1, wdic2, rep, no_balance):
             best_correct = correct
             best_acc = acc 
     
-    tools.say('acc: {}% ({} / {})\t'.format(best_acc, best_correct, len(indices)), False)        
-    tools.say('{} {}, {} {}'.format(num1, tag1, num2, tag2))
+    say('acc: {}% ({} / {})\t'.format(best_acc, best_correct, len(indices)), False)        
+    say('{} {}, {} {}'.format(num1, tag1, num2, tag2))
     return best_acc
 
 def read_rep(embedding_file, tdic):
@@ -126,5 +127,5 @@ if __name__=='__main__':
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
     args = argparser.parse_args()
 
-    tools.set_quiet(args.quiet)
+    set_quiet(args.quiet)
     pairwise_classify(args.embedding_file, args.anchor_words, args.no_balance)

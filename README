@@ -1,43 +1,25 @@
-This project supports various operations required to perform CCA.
+                                                          
+CCA on text data                                 Karl Stratos
+                                      stratos@cs.columbia.edu
+_____________________________________________________________
+1. When you have a raw (but properly tokenized) text corpus 
 
-
-____________________________________________________________________
-1. When you have a raw text corpus (tokenized!)
-
-(a) Derive n-gram counts from the corpus:
-
+(a) Count n-grams: 
 python cca.py --corpus input/example/example.corpus
 
-(b) Cutoff rare words in the n-grams (you need unigram counts):
+(b) Cutoff rare words in the n-grams (need unigram counts). 
+Optionally, embed words you want to keep with --myvocab:
+python cca.py --ngrams input/example/example.3grams --cutoff 1 --unigrams input/example/example.1grams [--myvocab input/pos/univ12.all]
 
-python cca.py --ngrams input/example/example.3grams --cutoff 1 --unigrams input/example/example.1grams
-
-(c) Extract features from this processed n-gram counts:
-
+(c) Extract features: 
 python cca.py --ngrams input/example/example.3grams.cutoff1 --extract_views
 
-(d) Run CCA on this feature file:
+(d) Run CCA on this feature file. Specify 
+- m: number of CCA components
+- kappa: pseudocounts for smoothing
+python cca.py --views input/example/example.3grams.cutoff1.featurized --m 100 --kappa 5
 
-python cca.py --views input/example/example.3grams.cutoff1.featurized 
-
-You can specify the parameters
-
-  --cca_dim CCA_DIM     number of CCA dimensions
-  --extra_dim EXTRA_DIM
-                        oversampling parameter
-  --power_num POWER_NUM
-                        number of power iterations
-  --kappa KAPPA         pseudocounts for smoothing
-  --wantB               write view 2 projeciton as well?
-
-(e) Examine the output:
-
-output/example.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/A
-output/example.3grams.cutoff1.featurized.cca_dim200.kappa100.extra_dim40.power_num5.out/corr
-
-
-____________________________________________________________________
-2. When you have a processed n-gram file (e.g., from Google n-grams)
-
-Start from step (c).
+_____________________________________________________________
+2. When you have processed n-grams (e.g., Google n-grams), 
+start from step (c).
 

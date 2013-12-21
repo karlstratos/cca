@@ -3,6 +3,11 @@ from scipy.linalg import qr
 from scipy.linalg import svd
 from scipy.sparse import csc_matrix
 from numpy import allclose, outer
+from sparsesvd import sparsesvd
+
+def mysparsesvd(sparsematrix, m):
+    Ut, S, Vt = sparsesvd(sparsematrix, m)
+    return Ut.T, S, Vt.T
 
 extra_dim = 50
 power_num = 5

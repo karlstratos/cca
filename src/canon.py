@@ -1,23 +1,30 @@
 import os
 import cPickle
-from collections import Counter
-from tools import say
-from tools import count_file_lines
-from tools import inline_print
-from tools import compute_invsqrt_diag_cov
-from tools import update_mapping
+import datetime
+from time import strftime
+from io import say
+from io import wc_l
+from io import inline_print
 from pca import pca_svd
-from svd import randsvd
+from svd import mysparsesvd
 from numpy import array
-from sparsesvd import sparsesvd
 from numpy.linalg import norm
 from scipy.sparse import csc_matrix
-from time import strftime
-import datetime
+from collections import Counter
 
 class canon(object):
 
-    def get_stats(self, views):
+    def get_stats(self, views):        
+        def update_mapping(raw_feat_tok, smap, imap, featval, head):
+            feat_obj = raw_feat_tok.split('<val>')
+            featstr = feat_obj[0]
+            if not featstr in smap:
+                smap[featstr] = head
+                imap[head] = featstr
+                featval[head] = 1 if len(feat_obj) == 1 else float(feat_obj[1]) 
+                head += 1
+            return smap[featstr], head            
+        
         assert(os.path.isfile(views))
         say('views: {}'.format(views))
         self.views = views
@@ -44,7 +51,7 @@ class canon(object):
         featvalX = {}
         featvalY = {}
         
-        num_lines = count_file_lines(self.views)
+        num_lines = wc_l(self.views)
         linenum = 0
         with open(self.views) as f:
             for line in f:
@@ -80,13 +87,11 @@ class canon(object):
         with open(pickle_file, 'wb') as outf:
             cPickle.dump((self.sX, self.sY, self.iX, self.iY, self.massXY, self.sqmassX, self.sqmassY, self.M), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
     
-    def set_params(self, m, kappa, randsvd):
+    def set_params(self, m, kappa):
         say('m: {}'.format(m))
         say('kappa: {}'.format(kappa))
-        say('randsvd: {}'.format(randsvd))
         self.m = m
         self.kappa = kappa
-        self.randsvd = randsvd
 
     def rec(self, string, newline=True):
         if newline:
@@ -100,8 +105,6 @@ class canon(object):
     def start_logging(self):
         self.dirname = 'output/{}.m{}.kappa{}'.\
                         format(os.path.basename(self.views), self.m, self.kappa)
-        if self.randsvd:
-            self.dirname += '.randsvd'
         self.dirname += '.out'
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)                
@@ -118,21 +121,22 @@ class canon(object):
         self.logf.close()
 
     def approx_cca(self):        
+        def compute_invsqrt_diag_cov(sqmass, kappa, M):
+            smoothed_variances = (sqmass + kappa) / M 
+            diags = [i for i in range(len(sqmass))]
+            invsqrt_cov = csc_matrix((pow(smoothed_variances, -.5), (diags, diags)), shape=(len(sqmass), len(sqmass)))     
+            return invsqrt_cov
+                        
         self.rec('\nPerform approximate CCA:\n1. Pseudo-whitening')    
         invsqrt_covX = compute_invsqrt_diag_cov(self.sqmassX, self.kappa, self.M)
         invsqrt_covY = compute_invsqrt_diag_cov(self.sqmassY, self.kappa, self.M)
 
-        M = (1./self.M) * invsqrt_covX * self.massXY * invsqrt_covY # still sparse
+        C = (1./self.M) * invsqrt_covX * self.massXY * invsqrt_covY # still sparse
         
-        self.rec('\tM has dimensions {} x {} ({} nonzeros)'.format(M.shape[0], M.shape[1], M.nnz))
+        self.rec('\tC has dimensions {} x {} ({} nonzeros)'.format(C.shape[0], C.shape[1], C.nnz))
 
-        if not self.randsvd:
-            self.rec('2. Exact thin SVD on M')
-            Ut, self.corr, _ = sparsesvd(M, self.m)
-            U = Ut.T
-        else:
-            self.rec('2. Randomized thin SVD on M')
-            U, self.corr, _ = randsvd(M, self.m)
+        self.rec('2. Exact thin SVD on C')
+        U, self.corr, _ = mysparsesvd(C, self.m)
     
         self.rec('3. De-whitening')
         self.A = invsqrt_covX * U;
@@ -164,11 +168,11 @@ class canon(object):
         #self.rec('Storing A at: %s' % self.dirname+'/A')
         #write_embeddings(self.dirname+'/A', self.A)
 
-        self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
+        #self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
         Atemp = self.A
         for i in range(Atemp.shape[0]):
             Atemp[i,:] /= norm(Atemp[i,:])
-        write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
+        #write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
             
         self.rec('Storing A.rows_normalized.pca100 at: %s' % self.dirname+'/A.rows_normalized.pca100')
         pca_trans, _, _ = pca_svd(Atemp)
