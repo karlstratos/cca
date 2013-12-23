@@ -162,21 +162,19 @@ class canon(object):
         def write_embeddings(outfilename, A):
             with open(outfilename, 'wb') as f:
                 for i in sorted_indices:
-                    if self.iX[i] == '<*>' or self.iX[i] == '_START_' or self.iX[i] == '_END_': # ignore useless symbols
-                        continue
                     print >> f, self.sqmassX[i], self.iX[i], 
                     for j in range(len(A[i,:])):
                         print >> f, A[i,j], 
                     print >> f            
 
-        #self.rec('Storing A at: %s' % self.dirname+'/A')
-        #write_embeddings(self.dirname+'/A', self.A)
+        self.rec('Storing A at: %s' % self.dirname+'/A')
+        write_embeddings(self.dirname+'/A', self.A)
 
-        #self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
+        self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
         Atemp = self.A
         for i in range(Atemp.shape[0]):
             Atemp[i,:] /= norm(Atemp[i,:])
-        #write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
+        write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
             
         self.rec('Storing A.rows_normalized.pca100 at: %s' % self.dirname+'/A.rows_normalized.pca100')
         pca_trans, _, _ = pca_svd(Atemp)

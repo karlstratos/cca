@@ -12,8 +12,8 @@ def main(args):
     if args.corpus: 
         assert(args.cutoff is not None)
         unigrams = count_unigrams(args.corpus)
-        vocab, views = decide_vocab(unigrams, args.cutoff, args.myvocab)
-        extract_views(args.corpus, vocab, views)
+        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.myvocab)
+        extract_views(args.corpus, vocab, outfname)
     
     if args.views:
         assert(args.m is not None and args.kappa is not None)
@@ -40,8 +40,8 @@ if __name__=='__main__':
     argparser.add_argument('--m',             type=int,             help='number of CCA dimensions')
     argparser.add_argument('--kappa',         type=int,             help='smoothing parameter')
     #_________________________________________________________________________________________________________________________________
-    argparser.add_argument('--clean',          action='store_true', help='clean up the project folder and remove sample outputs')
-    argparser.add_argument('--quiet',          action='store_true', help='quiet mode')
+    argparser.add_argument('--clean',         action='store_true',  help='clean up the project folder and remove sample outputs')
+    argparser.add_argument('--quiet',         action='store_true',  help='quiet mode')
     args = argparser.parse_args()
     main(args)
     

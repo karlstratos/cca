@@ -1,25 +1,13 @@
-                                                          
+
 CCA on text data                                 Karl Stratos
                                       stratos@cs.columbia.edu
 _____________________________________________________________
 1. When you have a raw (but properly tokenized) text corpus 
 
-(a) Count n-grams: 
-python cca.py --corpus input/example/example.corpus
+(a) python cca.py --corpus input/example/example.corpus --cutoff 0 --myvocab input/pos/univ12.all
 
-(b) Cutoff rare words in the n-grams (need unigram counts). 
-Optionally, embed words you want to keep with --myvocab:
-python cca.py --ngrams input/example/example.3grams --cutoff 1 --unigrams input/example/example.1grams [--myvocab input/pos/univ12.all]
-
-(c) Extract features: 
-python cca.py --ngrams input/example/example.3grams.cutoff1 --extract_views
-
-(d) Run CCA on this feature file. Specify 
-- m: number of CCA components
-- kappa: pseudocounts for smoothing
-python cca.py --views input/example/example.3grams.cutoff1.featurized --m 100 --kappa 5
+(b) python cca.py --views input/example/example.cutoff0.univ12.window3 --m 2 --kappa 1
 
 _____________________________________________________________
-2. When you have processed n-grams (e.g., Google n-grams), 
-start from step (c).
-
+2. When you have separately processed features (e.g., from
+ Google n-grams), start from step (b).
