@@ -1,4 +1,5 @@
 import os
+import re
 import cPickle
 import datetime
 from time import strftime
@@ -45,6 +46,8 @@ class canon(object):
         self.sqmassX = Counter()
         self.sqmassY = Counter()
         self.M = 0. # number of samples
+        matchObj = re.match( r'(.*)window(\d)(.*)', views)
+        window_size = int(matchObj.group(2))
         
         x_head = 0 # distinct number per feature in view 1 
         y_head = 0 # distinct number per feature in view 2
@@ -58,7 +61,7 @@ class canon(object):
                 linenum += 1
                 toks = line.split()
                 count = int(toks[0])
-                self.M += count
+                self.M += count                
                 
                 curtain = toks.index('|:|')
                 
@@ -81,9 +84,10 @@ class canon(object):
         
         inline_print('\n')
         self.massXY = csc_matrix((self.massXY.values(), zip(*self.massXY.keys())), shape=(len(self.sqmassX), len(self.sqmassY)))
-        self.sqmassX = array([self.sqmassX[j] for j in range(len(self.sqmassX))])
-        self.sqmassY = array([self.sqmassY[j] for j in range(len(self.sqmassY))])            
-        
+        self.sqmassX = array([self.sqmassX[j] for j in range(len(self.sqmassX))]) / (window_size - 1)
+        self.sqmassY = array([self.sqmassY[j] for j in range(len(self.sqmassY))])
+        self.M /= window_size - 1            
+
         with open(pickle_file, 'wb') as outf:
             cPickle.dump((self.sX, self.sY, self.iX, self.iY, self.massXY, self.sqmassX, self.sqmassY, self.M), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
     
