@@ -61,7 +61,6 @@ def count_ngrams(corpus, n_vals=False):
 def decide_vocab(unigrams, cutoff, given_myvocab):
     outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff) 
     assert(unigrams and os.path.isfile(unigrams))     
-    assert(cutoff)
     if given_myvocab: 
         myvocab = scrape_words(given_myvocab)
         myvocab_hit = {}
@@ -94,10 +93,11 @@ def decide_vocab(unigrams, cutoff, given_myvocab):
             total_count += count
             if count > cutoff or (given_myvocab and word in myvocab): mine_count += count
                 
-    say('Will keep %i out of %i words (%5.2f%% of unigram mass)' % (len(vocab), num_unigrams, mine_count / total_count * 100))
+    say('Cutoff %i: will keep %i out of %i words (%5.2f%% of unigram mass)' % (cutoff, len(vocab), num_unigrams, mine_count / total_count * 100))
     if given_myvocab:
         say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
 
+    vocab[_buffer_] = True
     vocab['_START_'] = True # for google n-grams 
     vocab['_END_'] = True    
     
@@ -114,6 +114,7 @@ def extract_views(corpus, vocab, views, window_size=3):
     def inc_cooccur(q):
         center = window_size / 2 # position of the current word
         token = q[center] if q[center] in vocab else _rare_
+        if token == _buffer_: return
         view1_holder = phi(token, 0)
         for i in range(window_size):
             if i != center:

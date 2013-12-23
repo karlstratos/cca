@@ -10,13 +10,13 @@ def main(args):
     set_quiet(args.quiet)
     
     if args.corpus: 
-        assert(args.cutoff)
+        assert(args.cutoff is not None)
         unigrams = count_unigrams(args.corpus)
         vocab, views = decide_vocab(unigrams, args.cutoff, args.myvocab)
         extract_views(args.corpus, vocab, views)
     
     if args.views:
-        assert(args.m and args.kappa)
+        assert(args.m is not None and args.kappa is not None)
         C = canon()     
         C.get_stats(args.views)        
         C.set_params(args.m, args.kappa)
