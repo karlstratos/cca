@@ -22,8 +22,9 @@ def main(args):
         C.set_params(args.m, args.kappa)
         C.start_logging()        
         C.approx_cca()
-        C.write_result()
         C.end_logging()
+        C.write_result()
+        
     
     if args.clean:
         command('find . -type f -name \'*.pyc\' -print -o -name \'*~\' -print | xargs rm -rf') # remove *.pyc *~ 

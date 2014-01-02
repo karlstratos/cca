@@ -167,16 +167,16 @@ class canon(object):
                         print >> f, A[i,j], 
                     print >> f            
 
-        #self.rec('Storing A at: %s' % self.dirname+'/A')
+        #say('Storing A at: %s' % self.dirname+'/A')
         #write_embeddings(self.dirname+'/A', self.A)
 
-        self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
+        say('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
         Atemp = self.A
         for i in range(Atemp.shape[0]):
             Atemp[i,:] /= norm(Atemp[i,:])
         write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
             
-        self.rec('Storing A.rows_normalized.pca100 at: %s' % self.dirname+'/A.rows_normalized.pca100')
+        say('Storing A.rows_normalized.pca100 at: %s' % self.dirname+'/A.rows_normalized.pca100')
         pca_trans, _, _ = pca_svd(Atemp)
         Atemp = pca_trans[:,:100]
         write_embeddings(self.dirname+'/A.rows_normalized.pca100', Atemp)
