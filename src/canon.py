@@ -167,8 +167,8 @@ class canon(object):
                         print >> f, A[i,j], 
                     print >> f            
 
-        self.rec('Storing A at: %s' % self.dirname+'/A')
-        write_embeddings(self.dirname+'/A', self.A)
+        #self.rec('Storing A at: %s' % self.dirname+'/A')
+        #write_embeddings(self.dirname+'/A', self.A)
 
         self.rec('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
         Atemp = self.A

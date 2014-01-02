@@ -1,12 +1,21 @@
 import argparse
 import numpy
-from io import say
 from io import set_quiet
+from io import inline_print
 from collections import Counter
 
+method = False
+al = False
+
 def main(args):
-    if args.analyze:
-        analyze_output(args.analyze)
+    if args.analyze: analyze_output(args.analyze)
+    
+    global method
+    global al
+    assert(args.method == 1 or args.method == 2)
+    method = args.method
+    if method == 2: al = args.al
+    
     trainpairs, trainwords = read_sentpairs(args.train_sents)
     testpairs, testwords = read_sentpairs(args.test_sents)
     allwords = {word:True for word in trainwords.keys() + testwords.keys()}            
@@ -24,7 +33,7 @@ def main(args):
     avg_acc = 0
     for drawnum in range(args.num_draws):
         print '{}. drawing {} random training sentences'.format(drawnum+1, args.num_sents), 
-        randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents) ]
+        randpairs = [ trainpairs[i] for i in numpy.random.choice(len(trainpairs), args.num_sents, replace=False) ]
         acc = nearest_tagging(testpairs, randpairs, rep, args.output)
         print acc
         avg_acc += acc / args.num_draws
@@ -38,70 +47,98 @@ def nearest_tagging(testpairs, trainpairs, rep, output):
         for proto in protos:
             print proto, '\t', protos[proto]
         outf = open(output, 'wb')
+
     num_instances = 0.
     num_correct = 0.
-    cache = {}
-    proto_cache = {} 
-    for pair in testpairs:
+    point_cache = {}
+    proto_cache = {}
+    for sentnum, pair in enumerate(testpairs):
+        inline_print('Processing sentence %i of %i' % (sentnum+1, len(testpairs)))
         for j in range(len(pair[0])):
-            num_instances += 1
+            num_instances += 1            
             word = pair[0][j]
             gold_label = pair[1][j]
-            nearest_proto, predicted_label = grab_nearest(word, protos, rep, cache, proto_cache)
-            if output:
-                say('{} {} {} {}'.format(word, gold_label, predicted_label, '('+nearest_proto+')'))
-                print >> outf, word, gold_label, predicted_label, '('+nearest_proto+')'
-            if predicted_label == gold_label:
-                num_correct += 1
-        if output:
-            say('')
-            print >> outf
 
-    if output:
-        outf.close()            
+            if method == 1:
+                point = word
+            elif method == 2:
+                prev_word = pair[0][j-1] if j > 0 else '.' 
+                point = (prev_word, word)
+            
+            nearest_proto, predicted_label = grab_nearest(point, protos, rep, point_cache, proto_cache)
+            if output:
+                if method == 1:
+                    print >> outf, word, gold_label, predicted_label, '('+nearest_proto+')'
+                elif method == 2:
+                    print >> outf, word, gold_label, predicted_label, point, nearest_proto
+            if predicted_label == gold_label: num_correct += 1
+        if output:
+            print >> outf
+    inline_print('\n')
+
+    if output: outf.close()            
     acc = num_correct / num_instances
     return acc
 
-def grab_nearest(word, protos, rep, cache, proto_cache):
-    if word in cache:
-        return cache[word]
-    x = rep[word] if word in rep else rep['<?>']
+def grab_nearest(point, protos, rep, point_cache, proto_cache):
+    if point in point_cache:
+        #print '-----hitting point_cache!' 
+        return point_cache[point]
+
+    if method == 1:
+        word = point if point in rep else '<?>'
+        x = rep[word]
+    elif method == 2:
+        prev_word = point[0] if point[0] in rep else '<?>'
+        word = point[1] if point[1] in rep else '<?>'
+        x = al * rep[prev_word] + (1 - al) * rep[word]
 
     min_dist = float('inf')
     closest_proto = False
     for proto in protos:
-        if not proto in rep:
-            continue
-        if proto in proto_cache:
+        stem = proto if method == 1 else proto[1]
+        if not stem in rep: continue
+        
+        if proto in proto_cache: 
+            #print '\thitting proto_cache' 
             xp = proto_cache[proto]
         else:
-            xp = rep[proto]
+            if method == 1:
+                xp = rep[stem]
+            elif method == 2:
+                affix = proto[0] if proto[0] in rep else '<?>'
+                xp = al * rep[affix] + (1 - al) * rep[stem] # try normalizing
             proto_cache[proto] = xp
+            
         dist = numpy.linalg.norm(x - xp)
         if dist < min_dist:
             min_dist = dist
             closest_proto = proto
-    cache[word] = closest_proto, protos[closest_proto]
-    return cache[word]
+            
+    point_cache[point] = closest_proto, protos[closest_proto]
+    return point_cache[point]
 
 def get_protos(trainpairs):
-    label_count = {}
-    word_count = {}
+    proto_count = {}
     for pair in trainpairs:
         for j in range(len(pair[0])):
             word = pair[0][j]
             label = pair[1][j]
-            if not word in word_count:
-                word_count[word] = Counter()
-            if not label in label_count:
-                label_count[label] = Counter()
-            word_count[word][label] += 1
-            label_count[label][word] += 1
+
+            if method == 1:
+                proto = word
+            elif method == 2:
+                prev_word = pair[0][j-1] if j > 0 else '.' 
+                proto = (prev_word, word)
+                
+            if not proto in proto_count: proto_count[proto] = Counter()
+            proto_count[proto][label] += 1
+
     protos = {}
-    for word in word_count:
-        sorted_list = sorted(word_count[word].items(), key=lambda x: x[1], reverse=True)
+    for proto in proto_count:
+        sorted_list = sorted(proto_count[proto].items(), key=lambda x: x[1], reverse=True)
         winner_label = sorted_list[0][0]
-        protos[word] = winner_label
+        protos[proto] = winner_label
     return protos
 
 def get_rep(embedding_file, words, top):
@@ -177,9 +214,11 @@ if __name__=='__main__':
     argparser.add_argument('--test_sents', type=str, help='file of tagged sentences for testing')
     argparser.add_argument('--embedding_file', type=str, help='file of embeddings')
     argparser.add_argument('--longest', action='store_true', help='use the longest sentences')
+    argparser.add_argument('--method', type=int, help='1. x = rep[word], 2. x = al * rep[prev_word] + (1 - al) * rep[word]')
+    argparser.add_argument('--al', type=float, default=0., help='weight of prev word in method 2')
     argparser.add_argument('--num_sents', type=int, default=10, help='how many sentences to draw')
     argparser.add_argument('--num_draws', type=int, default=10, help='how many times to repeat the experiment')
-    argparser.add_argument('--top', type=int, help='use only this many top dimensions')
+    argparser.add_argument('--top', type=int, default=20, help='use only this many top dimensions')
     argparser.add_argument('--quiet', action='store_true', help='quiet mode')
     argparser.add_argument('--output', type=str, help='output predictions in this file')
     argparser.add_argument('--analyze', type=str, help='analyze this output file')
