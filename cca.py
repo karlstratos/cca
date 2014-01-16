@@ -12,7 +12,7 @@ def main(args):
     if args.corpus: 
         assert(args.cutoff is not None)
         unigrams = count_unigrams(args.corpus)
-        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.myvocab)
+        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.myvocab, args.muffled)
         extract_views(args.corpus, vocab, outfname)
     
     if args.views:
@@ -20,7 +20,7 @@ def main(args):
         C = canon()     
         C.get_stats(args.views)        
         C.set_params(args.m, args.kappa)
-        C.start_logging()        
+        C.start_logging()
         C.approx_cca()
         C.end_logging()
         C.write_result()
@@ -43,6 +43,7 @@ if __name__=='__main__':
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--clean',         action='store_true',  help='clean up the project folder and remove sample outputs')
     argparser.add_argument('--quiet',         action='store_true',  help='quiet mode')
+    argparser.add_argument('--muffled',       action='store_true',  help='do not ask for user input')
     args = argparser.parse_args()
     main(args)
     

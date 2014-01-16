@@ -142,8 +142,10 @@ class canon(object):
         self.rec('2. Exact thin SVD on C')
         U, self.corr, _ = mysparsesvd(C, self.m)
     
-        self.rec('3. De-whitening')
-        self.A = invsqrt_covX * U;
+        self.rec('3. Setting A = U')
+        self.A = U;
+        #self.rec('3. De-whitening')
+        #self.A = invsqrt_covX * U;
     
     def write_result(self):
         self.write_corr()
@@ -167,8 +169,8 @@ class canon(object):
                         print >> f, A[i,j], 
                     print >> f            
 
-        #say('Storing A at: %s' % self.dirname+'/A')
-        #write_embeddings(self.dirname+'/A', self.A)
+        say('Storing A at: %s' % self.dirname+'/A')
+        write_embeddings(self.dirname+'/A', self.A)
 
         say('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
         Atemp = self.A

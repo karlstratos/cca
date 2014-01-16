@@ -59,14 +59,14 @@ def count_ngrams(corpus, n_vals=False):
                     print >> outf, tok,
                 print >> outf, count
 
-def decide_vocab(unigrams, cutoff, given_myvocab):
+def decide_vocab(unigrams, cutoff, given_myvocab, muffled):
     outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff) 
     assert(unigrams and os.path.isfile(unigrams))     
     if given_myvocab: 
         myvocab = scrape_words(given_myvocab)
         myvocab_hit = {}
         outfname += '.' + os.path.splitext(os.path.basename(given_myvocab))[0]
-    else:
+    elif not muffled:
         ans = raw_input('Warning: are you sure you don\'t want a vocab? [y] ')
         if ans is not 'y': exit(0) 
         
@@ -102,8 +102,9 @@ def decide_vocab(unigrams, cutoff, given_myvocab):
     vocab[_gstart_] = True # for google n-grams 
     vocab[_gend_] = True    
     
-    ans = raw_input('Do you want to proceed with the setting? [y] ')
-    if ans is not 'y': exit(0)
+    if not muffled:
+        ans = raw_input('Do you want to proceed with the setting? [y] ')
+        if ans is not 'y': exit(0)
     return vocab, outfname
 
 def extract_views(corpus, vocab, views, window_size=3):
