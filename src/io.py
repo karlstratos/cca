@@ -23,6 +23,11 @@ def say(string, newline=True):
 def command(command_str):
     say(command_str)
     os.system(command_str)
+    
+def clean():
+    command('find . -type f -name \'*.pyc\' -print -o -name \'*~\' -print | xargs rm -rf') # remove *.pyc *~ 
+    command('find input/example/ -type f -not -name \'example.corpus\' | xargs rm -rf')    # remove input/example/* except for example.corpus
+    command('rm -rf output/example*')                                                      # remove output/example*    
 
 def inline_print(string):
     if not _quiet_:

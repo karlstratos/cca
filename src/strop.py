@@ -1,22 +1,17 @@
 import os
 from io import say
 from io import inline_print
-from io import scrape_words
 from collections import deque
 from collections import Counter
 
-_buffer_ = '<*>'
 _rare_ = '<?>'
-_gstart_ = '_START_'
-_gend_ = '_END_'
+_buffer_ = '<*>'
+token_dict = {}
 
 def count_unigrams(corpus):
     unigrams = os.path.splitext(corpus)[0] + '.1grams'
-    if not os.path.isfile(unigrams):
-        say('creating {}'.format(unigrams))
-        count_ngrams(corpus, n_vals=[1])
-    else: 
-        say('{} exists'.format(unigrams))
+    if not os.path.isfile(unigrams): count_ngrams(corpus, n_vals=[1])
+    else: say('{} exists'.format(unigrams))
     return unigrams 
 
 def count_ngrams(corpus, n_vals=False):
@@ -31,14 +26,12 @@ def count_ngrams(corpus, n_vals=False):
     with open(corpus) as f:
         while True:
             lines = f.readlines(10000000) # caching lines
-            if not lines:
-                break
+            if not lines: break
             for line in lines:
                 toks = line.split()
                 for tok in toks:
                     num_tok += 1
-                    if num_tok % 1000 is 0:
-                        inline_print('Processed %i tokens' % (num_tok))
+                    if num_tok % 1000 is 0: inline_print('Processed %i tokens' % (num_tok))
                     for i in range(len(n_vals)):
                         queues[i].append(tok)
                         ngrams[i][tuple(queues[i])] += 1
@@ -59,105 +52,81 @@ def count_ngrams(corpus, n_vals=False):
                     print >> outf, tok,
                 print >> outf, count
 
-def decide_vocab(unigrams, cutoff, given_myvocab, muffled):
+def decide_vocab(unigrams, cutoff):
+    global token_dict
     outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff) 
     assert(unigrams and os.path.isfile(unigrams))     
-    if given_myvocab: 
-        myvocab = scrape_words(given_myvocab)
-        myvocab_hit = {}
-        outfname += '.' + os.path.splitext(os.path.basename(given_myvocab))[0]
-    elif not muffled:
-        ans = raw_input('Warning: are you sure you don\'t want a vocab? [y] ')
-        if ans is not 'y': exit(0) 
-        
+
     say('Reading unigrams')
     vocab = {}
     num_unigrams = 0 
     total_count = 0.
     mine_count = 0.
+    token_dict = {}
+    token_head = 1 # starting from 1 for matlab 
+    
     with open(unigrams) as f:
         for line in f:
             num_unigrams += 1
             toks = line.split()
-            if len(toks) != 2:
-                continue
+            if len(toks) != 2: continue
             word = toks[0]
             count = int(toks[1])            
             
-            if count > cutoff:
-                vocab[word] = count
-
-            if given_myvocab and word in myvocab:
-                vocab[word] = count
-                myvocab_hit[word] = True
-                
             total_count += count
-            if count > cutoff or (given_myvocab and word in myvocab): mine_count += count
-                
-    say('Cutoff %i: will keep %i out of %i words (%5.2f%% of unigram mass)' % (cutoff, len(vocab), num_unigrams, mine_count / total_count * 100))
-    if given_myvocab:
-        say('\t- They include {} out of {} in my vocab'.format(len(myvocab_hit), len(myvocab)))
-
-    vocab[_buffer_] = True
-    vocab[_gstart_] = True # for google n-grams 
-    vocab[_gend_] = True    
+            if count > cutoff:
+                mine_count += count 
+                vocab[word] = count
+                if not word in token_dict: token_dict[word] = token_head; token_head += 1 
     
-    if not muffled:
-        ans = raw_input('Do you want to proceed with the setting? [y] ')
-        if ans is not 'y': exit(0)
+    say('Cutoff %i: will keep %i out of %i words (%5.2f%% of unigram mass)' % (cutoff, len(vocab), num_unigrams, mine_count / total_count * 100))
+    token_dict[_rare_] = len(token_dict) + 1
+    
     return vocab, outfname
 
-def extract_views(corpus, vocab, views, window_size=3):
-    views += '.window' + str(window_size)
+def extract_views(corpus, vocab, views, window):
+    views += '.window' + str(window)
     assert(os.path.isfile(corpus))    
     
-    cooccur = Counter()
+    cooccur_count = Counter()
     def inc_cooccur(q):
-        center = window_size / 2 # position of the current word
+        center = (window - 1) / 2 # position of the current token
+        if q[center] == _buffer_: return
         token = q[center] if q[center] in vocab else _rare_
-        if token == _buffer_ or token == _gstart_ or token == _gend_: return
-        view1_holder = phi(token, 0)
-        for i in range(window_size):
+        for i in range(window):
             if i != center:
-                token = q[i] if q[i] in vocab else _rare_
-                view2_holder = phi(token, i-center)
-                for view2f in view2_holder:
-                    for view1f in view1_holder:
-                        cooccur[(view1f, view2f)] += 1
+                if q[i] == _buffer_: continue
+                friend = q[i] if q[i] in vocab else _rare_
+                rel_position = i-center
+                position_marker = '<+'+str(rel_position)+'>' if rel_position > 0 else '<'+str(rel_position)+'>'
+                friend += position_marker
+                cooccur_count[(token, friend)] += 1
             
     num_tok = 0
-    q = deque([_buffer_ for _ in range(window_size-1)], window_size)
+    q = deque([_buffer_ for _ in range(window-1)], window)
     with open(corpus) as f:
         while True:
             lines = f.readlines(10000000) # caching lines
-            if not lines:
-                break
+            if not lines: break
             for line in lines:
                 toks = line.split()
                 for tok in toks:
                     num_tok += 1
-                    if num_tok % 1000 is 0:
-                        inline_print('Processed %i tokens' % (num_tok))
+                    if num_tok % 1000 is 0: inline_print('Processed %i tokens' % (num_tok))
                     q.append(tok)
                     inc_cooccur(q)                    
                  
-    for _ in range(window_size-1):
+    for _ in range(window-1):
         q.append(_buffer_)
         inc_cooccur(q)
 
     say('\nWriting to {}'.format(views))
+    friend_dict = {}
+    friend_head = 1 # starting from 1 for matlab     
+    
     with open(views, 'wb') as outf:
-        for (v1f, v2f) in cooccur:
-            print >> outf, cooccur[(v1f, v2f)], v1f, '|:|', v2f
-
-def phi(token, rel_position):
-    if rel_position > 0:
-        position_marker = '<+'+str(rel_position)+'>'
-    elif rel_position < 0:
-        position_marker = '<'+str(rel_position)+'>'
-    else:
-        position_marker = ''
-    feat = token+position_marker
-    holder = {feat : True}
-    return holder
-
+        for (token, friend) in cooccur_count:
+            if not friend in friend_dict: friend_dict[friend] = friend_head; friend_head += 1 
+            
+            print token, token_dict[token], friend, friend_dict[friend], cooccur_count[(token, friend)]
+            print >> outf, token_dict[token], friend_dict[friend], cooccur_count[(token, friend)]

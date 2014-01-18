@@ -6,7 +6,6 @@ from time import strftime
 from io import say
 from io import wc_l
 from io import inline_print
-from pca import pca_svd
 from svd import mysparsesvd
 from numpy import array
 from numpy.linalg import norm
@@ -15,44 +14,26 @@ from collections import Counter
 
 class canon(object):
 
-    def get_stats(self, views):        
-        def update_mapping(raw_feat_tok, smap, imap, featval, head):
-            feat_obj = raw_feat_tok.split('<val>')
-            featstr = feat_obj[0]
-            if not featstr in smap:
-                smap[featstr] = head
-                imap[head] = featstr
-                featval[head] = 1 if len(feat_obj) == 1 else float(feat_obj[1]) 
-                head += 1
-            return smap[featstr], head            
-        
-        assert(os.path.isfile(views))
-        say('views: {}'.format(views))
-        self.views = views
+    def get_stats(self, stats):        
+        assert(os.path.isfile(stats))
+        say('stats: {}'.format(stats))
+        self.views = stats
+        self.unigrams = os.path.dirname(stats) + '/' + os.path.basename(stats).split('.')[0]+'.1grams'
+        assert(os.path.isfile(self.unigrams))
         
         pickle_file = self.views + '.pickled'
         if os.path.isfile(pickle_file):
             with open(pickle_file) as f:
-                self.sX, self.sY, self.iX, self.iY, self.massXY, self.sqmassX, self.sqmassY, self.M = cPickle.load(f)
+                self.countXY, self.countX, self.countY, self.num_samples = cPickle.load(f)
             return
         
         say('Gathering statistics from: %s' % self.views)
-        self.sX = {}
-        self.sY = {}
-        self.iX = {}
-        self.iY = {}
-    
-        self.massXY = Counter()
-        self.sqmassX = Counter()
-        self.sqmassY = Counter()
-        self.M = 0. # number of samples
-        matchObj = re.match( r'(.*)window(\d)(.*)', views)
+        self.countXY = Counter()
+        self.countX = Counter()
+        self.countY = Counter()
+        self.num_samples = 0. 
+        matchObj = re.match( r'(.*)window(\d)(.*)', stats)
         window_size = int(matchObj.group(2))
-        
-        x_head = 0 # distinct number per feature in view 1 
-        y_head = 0 # distinct number per feature in view 2
-        featvalX = {}
-        featvalY = {}
         
         num_lines = wc_l(self.views)
         linenum = 0
@@ -60,36 +41,22 @@ class canon(object):
             for line in f:
                 linenum += 1
                 toks = line.split()
-                count = int(toks[0])
-                self.M += count                
+                x, y, count = int(toks[0])-1, int(toks[1])-1, int(toks[2])
+                self.num_samples += count                
+                self.countX[x] += count
+                self.countY[y] += count
+                self.countXY[x, y] += count 
                 
-                curtain = toks.index('|:|')
-                
-                # view 1 features
-                xs = []
-                for i in range(1, curtain):
-                    x, x_head = update_mapping(toks[i], self.sX, self.iX, featvalX, x_head)
-                    self.sqmassX[x] += count * pow(featvalX[x], 2)
-                    xs.append(x)
-
-                # view 2 features
-                for i in range(curtain+1, len(toks)):
-                    y, y_head = update_mapping(toks[i], self.sY, self.iY, featvalY, y_head)
-                    self.sqmassY[y] += count * pow(featvalY[y], 2)
-                    for x in xs:
-                        self.massXY[x, y] += count * featvalX[x] * featvalY[y]
-                
-                if linenum % 1000 is 0:
-                    inline_print('Processing line %i of %i' % (linenum, num_lines))
+                if linenum % 1000 is 0: inline_print('Processing line %i of %i' % (linenum, num_lines))
         
-        inline_print('\n')
-        self.massXY = csc_matrix((self.massXY.values(), zip(*self.massXY.keys())), shape=(len(self.sqmassX), len(self.sqmassY)))
-        self.sqmassX = array([self.sqmassX[j] for j in range(len(self.sqmassX))]) / (window_size - 1)
-        self.sqmassY = array([self.sqmassY[j] for j in range(len(self.sqmassY))])
-        self.M /= window_size - 1            
-
+        inline_print('\nConstructing matrices\n')
+        self.countXY = csc_matrix((self.countXY.values(), zip(*self.countXY.keys())), shape=(len(self.countX), len(self.countY)))
+        self.countX = array([self.countX[i] for i in range(len(self.countX))]) / (window_size - 1)
+        self.countY = array([self.countY[i] for i in range(len(self.countY))])
+        self.num_samples /= window_size - 1
+        
         with open(pickle_file, 'wb') as outf:
-            cPickle.dump((self.sX, self.sY, self.iX, self.iY, self.massXY, self.sqmassX, self.sqmassY, self.M), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
+            cPickle.dump((self.countXY, self.countX, self.countY, self.num_samples), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
     
     def set_params(self, m, kappa):
         say('m: {}'.format(m))
@@ -125,63 +92,58 @@ class canon(object):
         self.logf.close()
 
     def approx_cca(self):        
-        def compute_invsqrt_diag_cov(sqmass, kappa, M):
-            smoothed_variances = (sqmass + kappa) / M 
-            diags = [i for i in range(len(sqmass))]
-            invsqrt_cov = csc_matrix((pow(smoothed_variances, -.5), (diags, diags)), shape=(len(sqmass), len(sqmass)))     
+        def compute_invsqrt_diag_cov(count, kappa, M):
+            smoothed_variances = (count + kappa) / M 
+            diags = [i for i in range(len(count))]
+            invsqrt_cov = csc_matrix((pow(smoothed_variances, -.5), (diags, diags)), shape=(len(count), len(count)))     
             return invsqrt_cov
                         
-        self.rec('\nPerform approximate CCA:\n1. Pseudo-whitening')    
-        invsqrt_covX = compute_invsqrt_diag_cov(self.sqmassX, self.kappa, self.M)
-        invsqrt_covY = compute_invsqrt_diag_cov(self.sqmassY, self.kappa, self.M)
+        invsqrt_covX = compute_invsqrt_diag_cov(self.countX, self.kappa, self.num_samples)
+        invsqrt_covY = compute_invsqrt_diag_cov(self.countY, self.kappa, self.num_samples)
 
-        C = (1./self.M) * invsqrt_covX * self.massXY * invsqrt_covY # still sparse
+        C = (1./self.num_samples) * invsqrt_covX * self.countXY * invsqrt_covY # still sparse
         
-        self.rec('\tC has dimensions {} x {} ({} nonzeros)'.format(C.shape[0], C.shape[1], C.nnz))
-
-        self.rec('2. Exact thin SVD on C')
-        U, self.corr, _ = mysparsesvd(C, self.m)
-    
-        self.rec('3. Setting A = U')
-        self.A = U;
-        #self.rec('3. De-whitening')
-        #self.A = invsqrt_covX * U;
+        self.rec('SVD on a ({} x {}) matrix ({} nonzeros)'.format(C.shape[0], C.shape[1], C.nnz))
+        self.U, self.corr, _ = mysparsesvd(C, self.m)
     
     def write_result(self):
         self.write_corr()
-        self.write_A()
+        self.write_U()
 
     def write_corr(self):
-        say('\nNormalizing correlation coefficients and storing them at: %s' % self.dirname+'/corr')
+        say('\nNormalizing \"correlation coefficients\" and storing them at: %s' % self.dirname+'/corr')
         self.corr = self.corr / max(self.corr)
         with open(self.dirname+'/corr', 'wb') as f:
             for val in self.corr:
                 print >> f, val 
         
-    def write_A(self):
-        sorted_indices = self.sqmassX.argsort()[::-1]
+    def write_U(self):        
 
-        def write_embeddings(outfilename, A):
+        vocab_size = self.U.shape[0]-1
+        i2w = {}
+        with open(self.unigrams) as uni:
+            raresum = 0
+            for i, line in enumerate(uni):
+                if i < vocab_size: i2w[i] = line.split()
+                else: raresum += int(line.split()[1])
+        i2w[vocab_size] = ('<?>', raresum)
+
+        def write_embeddings(outfilename, U):
+            wrote_rare = False
             with open(outfilename, 'wb') as f:
-                for i in sorted_indices:
-                    print >> f, self.sqmassX[i], self.iX[i], 
-                    for j in range(len(A[i,:])):
-                        print >> f, A[i,j], 
+                for i in range(vocab_size):
+                    if (not wrote_rare) and int(i2w[i][1]) <= i2w[vocab_size][1]:
+                            print >> f, i2w[vocab_size][1], i2w[vocab_size][0],
+                            for j in range(len(U[vocab_size,:])):
+                                print >> f, U[vocab_size,j],
+                            print >> f 
+                            wrote_rare = True
+                    print >> f, i2w[i][1], i2w[i][0],
+                    for j in range(len(U[i,:])):
+                        print >> f, U[i,j], 
                     print >> f            
 
-        say('Storing A at: %s' % self.dirname+'/A')
-        write_embeddings(self.dirname+'/A', self.A)
-
-        say('Storing A.rows_normalized at: %s' % self.dirname+'/A.rows_normalized')
-        Atemp = self.A
-        for i in range(Atemp.shape[0]):
-            Atemp[i,:] /= norm(Atemp[i,:])
-        write_embeddings(self.dirname+'/A.rows_normalized', Atemp)
-            
-        say('Storing A.rows_normalized.pca100 at: %s' % self.dirname+'/A.rows_normalized.pca100')
-        pca_trans, _, _ = pca_svd(Atemp)
-        Atemp = pca_trans[:,:100]
-        write_embeddings(self.dirname+'/A.rows_normalized.pca100', Atemp)
-        
-
+        say('Storing row-normalized singular vectors at: %s' % self.dirname+'/Ur')
+        for i in range(vocab_size): self.U[i,:] /= norm(self.U[i,:])
+        write_embeddings(self.dirname+'/Ur', self.U)
 
