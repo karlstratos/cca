@@ -128,5 +128,5 @@ def extract_views(corpus, vocab, views, window):
         for (token, friend) in cooccur_count:
             if not friend in friend_dict: friend_dict[friend] = friend_head; friend_head += 1 
             
-            print token, token_dict[token], friend, friend_dict[friend], cooccur_count[(token, friend)]
+            #print token, token_dict[token], friend, friend_dict[friend], cooccur_count[(token, friend)]
             print >> outf, token_dict[token], friend_dict[friend], cooccur_count[(token, friend)]
