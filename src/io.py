@@ -53,8 +53,7 @@ def read_embeddings(embedding_file, top=None, vocab=None):
     with open(embedding_file) as f:
         for line in f:    
             toks = line.split()
-            if vocab and (not toks[1] in vocab) and (not toks[1] != '<?>'):
-                continue
+            if vocab and (not toks[1] in vocab) and (not toks[1] != '<?>'): continue
             freqs[i] = toks[0]
             words[i] = toks[1]
             w2i[toks[1]] = i
@@ -65,23 +64,23 @@ def read_embeddings(embedding_file, top=None, vocab=None):
     
     say('total {} embeddings of dimension {}'.format(len(rep), len(rep[rep.keys()[0]])))            
     A = zeros((len(rep), len(rep[rep.keys()[0]])))
-    for i in range(len(rep)):
-        A[i,:] = rep[words[i]]
+    for i in range(len(rep)): A[i,:] = rep[words[i]]
     return freqs, words, w2i, i2w, rep, A 
 
 def write_embeddings(freqs, words, matrix, filename):
     with open(filename, 'wb') as outf:
         for i in range(len(words)):
-            print >> outf, freqs[i], words[i],
-            for val in matrix[i,:]:
-                print >> outf, val,
-            print >> outf
+            write_row(outf, freqs[i], words[i], matrix[i,:])
+
+def write_row(outf, count, word, vector):
+    print >> outf, count, word, 
+    for val in vector: print >> outf, val,
+    print >> outf
 
 def normalize_rows(embedding_file):
     freqs, words, A, _, _ = read_embeddings(embedding_file)    
     say('normalizing rows')
-    for i in range(A.shape[0]):
-        A[i,:] /= norm(A[i,:])
+    for i in range(A.shape[0]): A[i,:] /= norm(A[i,:])
     write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
     
 def scrape_words(sentences): 
@@ -89,8 +88,7 @@ def scrape_words(sentences):
     with open(sentences) as f:
         for line in f:
             toks = line.split()
-            if len(toks) == 0:
-                continue
+            if len(toks) == 0: continue
             myvocab[toks[0]] = True
     return myvocab
     

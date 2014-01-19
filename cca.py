@@ -28,8 +28,7 @@ def main(args):
     if args.clean: clean()
     
 if __name__=='__main__':    
-    description = 'Derives word vectors according to a disjoint-cluster sequence model'
-    argparser = argparse.ArgumentParser(description)
+    argparser = argparse.ArgumentParser('Derives word vectors by decomposing a scaled covariance matrix')
     argparser.add_argument('--corpus',        type=str,             help='count words from this corpus')
     argparser.add_argument('--cutoff',        type=int,             help='cut off words appearing <= this number')         
     argparser.add_argument('--window',        type=int, default=3,  help='size of the sliding window')
