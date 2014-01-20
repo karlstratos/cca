@@ -1,5 +1,4 @@
 import os
-import re
 import cPickle
 import datetime
 from time import strftime
@@ -17,56 +16,72 @@ _rare_ = '<?>'
 
 class canon(object):
 
-    def get_stats(self, stats):        
-        assert(os.path.isfile(stats))
-        say('stats: {}'.format(stats))
-        self.views = stats
-        self.unigrams = os.path.dirname(stats) + '/' + os.path.basename(stats).split('.')[0]+'.1grams'
-        assert(os.path.isfile(self.unigrams))
-        
-        pickle_file = self.views + '.pickled'
-        if os.path.isfile(pickle_file):
-            with open(pickle_file) as f:
-                self.countXY, self.countX, self.countY, self.num_samples = cPickle.load(f)
-            return
-        
-        say('Gathering statistics from: %s' % self.views)
-        self.countXY = Counter()
-        self.countX = Counter()
-        self.countY = Counter()
-        self.num_samples = 0. 
-        matchObj = re.match( r'(.*)window(\d)(.*)', stats)
-        window_size = int(matchObj.group(2))
-        
-        num_lines = wc_l(self.views)
-        linenum = 0
-        with open(self.views) as f:
-            for line in f:
-                linenum += 1
-                toks = line.split()
-                x, y, count = int(toks[0])-1, int(toks[1])-1, int(toks[2])
-                self.num_samples += count                
-                self.countX[x] += count
-                self.countY[y] += count
-                self.countXY[x, y] += count 
-                
-                if linenum % 1000 is 0: inline_print('Processing line %i of %i' % (linenum, num_lines))
-        
-        inline_print('\nConstructing matrices\n')
-        self.countXY = csc_matrix((self.countXY.values(), zip(*self.countXY.keys())), shape=(len(self.countX), len(self.countY)))
-        self.countX = array([self.countX[i] for i in range(len(self.countX))]) / (window_size - 1)
-        self.countY = array([self.countY[i] for i in range(len(self.countY))])
-        self.num_samples /= window_size - 1
-        
-        with open(pickle_file, 'wb') as outf:
-            cPickle.dump((self.countXY, self.countX, self.countY, self.num_samples), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
-    
     def set_params(self, m, kappa):
+        assert(m is not None and kappa is not None)
         say('m: {}'.format(m))
         say('kappa: {}'.format(kappa))
         self.m = m
         self.kappa = kappa
 
+    def get_stats(self, stats):
+        self.stats = stats        
+        self.XYstats = stats + 'XY' if stats[-1] == '/' else stats + '/XY'
+        self.Xstats = stats + 'X' if stats[-1] == '/' else stats + '/X'
+        self.Ystats = stats + 'Y' if stats[-1] == '/' else stats + '/Y'
+        
+        assert(os.path.isfile(self.XYstats) and os.path.isfile(self.Xstats) and os.path.isfile(self.Ystats))
+        say('XYstats: {}'.format(self.XYstats))
+        say('Xstats: {}'.format(self.Xstats))
+        say('Ystats: {}'.format(self.Ystats))
+        self.wordmap = {}
+        wordmapf = stats + 'wordmap' if stats[-1] == '/' else stats + '/wordmap'
+        with open(wordmapf) as f:
+            for line in f:
+                toks = line.split()
+                self.wordmap[int(toks[0])-1] = toks[1]
+        
+        pickle_file = self.XYstats + '.pickled'
+        if os.path.isfile(pickle_file):
+            with open(pickle_file) as f:
+                self.countXY, self.countX, self.countY, self.num_samples = cPickle.load(f)
+            return
+        
+        self.countXY = Counter()
+        self.countX = Counter()
+        self.countY = Counter()
+        self.num_samples = 0. 
+        
+        num_lines = wc_l(self.XYstats)
+        linenum = 0
+        with open(self.XYstats) as f:
+            for line in f:
+                linenum += 1
+                toks = line.split()
+                x, y, count = int(toks[0])-1, int(toks[1])-1, int(toks[2])
+                self.countXY[x, y] = count 
+                if linenum % 1000 is 0: inline_print('Processing line %i of %i' % (linenum, num_lines))
+        
+        with open(self.Xstats) as f:
+            for line in f:
+                toks = line.split()
+                x, count = int(toks[0])-1, int(toks[1])
+                self.countX[x] = count
+                self.num_samples += count
+        
+        with open(self.Ystats) as f:
+            for line in f:
+                toks = line.split()
+                y, count = int(toks[0])-1, int(toks[1])
+                self.countY[y] = count
+        
+        inline_print('\nConstructing matrices\n')
+        self.countXY = csc_matrix((self.countXY.values(), zip(*self.countXY.keys())), shape=(len(self.countX), len(self.countY)))
+        self.countX = array([self.countX[i] for i in range(len(self.countX))])
+        self.countY = array([self.countY[i] for i in range(len(self.countY))])
+
+        with open(pickle_file, 'wb') as outf:
+            cPickle.dump((self.countXY, self.countX, self.countY, self.num_samples), outf, protocol=cPickle.HIGHEST_PROTOCOL) 
+    
     def rec(self, string, newline=True):
         if newline:
             print >> self.logf, string
@@ -77,8 +92,9 @@ class canon(object):
         say(string)        
                 
     def start_logging(self):
+        name = self.stats.rsplit('/',1)[1] if self.stats[-1] != '/' else self.stats[:-1].rsplit('/',1)[1] 
         self.dirname = 'output/{}.m{}.kappa{}'.\
-                        format(os.path.basename(self.views), self.m, self.kappa)
+                        format(name, self.m, self.kappa)
         self.dirname += '.out'
         if not os.path.exists(self.dirname):
             os.makedirs(self.dirname)                
@@ -91,19 +107,19 @@ class canon(object):
         self.rec('________________________________________')
         self.rec(strftime('End time: %Y-%m-%d %H:%M:%S'))
         self.end_time = datetime.datetime.now().replace(microsecond=0)
-        self.rec('Total time: ' + str(self.end_time - self.start_time))
+        self.rec('Total time: ' + str(self.end_time - self.start_time)) # write max memory use
         self.logf.close()
 
     def approx_cca(self):        
-        def compute_invsqrt_diag_cov(count, kappa, M):
-            p1 = (count + kappa) / M 
+        def compute_invsqrt_diag_cov(count, kappa, num_samples):
+            p1 = (count + kappa) / float(num_samples) 
             diags = [i for i in range(len(count))]
             invsqrt_cov = csc_matrix((pow(p1, -.5), (diags, diags)), shape=(len(count), len(count)))     
             return invsqrt_cov
                         
         invsqrt_covX = compute_invsqrt_diag_cov(self.countX, self.kappa, self.num_samples)
         invsqrt_covY = compute_invsqrt_diag_cov(self.countY, self.kappa, self.num_samples)
-        C = (1./self.num_samples) * invsqrt_covX * self.countXY * invsqrt_covY # still sparse
+        C = float(1./self.num_samples) * invsqrt_covX * self.countXY * invsqrt_covY # still sparse
         
         self.rec('C: dimensions {} x {}, {} nonzeros'.format(C.shape[0], C.shape[1], C.nnz))
         self.rec('Computing {} left singular vectors U of C...'.format(self.m))
@@ -121,22 +137,8 @@ class canon(object):
                 print >> outf, self.sv[i], nsv[i]
         
     def write_U(self):
-        imap = {} # index -> (word, count)        
-        vsize = self.U.shape[0]-1
-        raresum = 0 # accumulate counts for the symbol _rare_
-        with open(self.unigrams) as uni:
-            for i, line in enumerate(uni):
-                word, countstr = line.split(); count = int(countstr)
-                if i < vsize: imap[i] = (word, count)
-                else: raresum += count
-        imap[vsize] = (_rare_, raresum)
-
         say('Storing row-normalized U at: %s' % self.dirname+'/Ur')
-        for i in range(vsize): self.U[i,:] /= norm(self.U[i,:])
+        sorted_indices = [pair[0] for pair in sorted([(i, self.countX[i]) for i in self.wordmap], key=lambda x:x[1], reverse=True)]
+        for i in range(self.U.shape[0]): self.U[i,:] /= norm(self.U[i,:])
         with open(self.dirname+'/Ur', 'wb') as f:
-            no_rare = True
-            for i in range(vsize):
-                if no_rare and imap[i][1] <= imap[vsize][1]:
-                    write_row(f, imap[vsize][1], imap[vsize][0], self.U[vsize,:])
-                    no_rare = False
-                write_row(f, imap[i][1], imap[i][0], self.U[i,:]) 
+            for i in sorted_indices: write_row(f, self.countX[i], self.wordmap[i], self.U[i,:]) 

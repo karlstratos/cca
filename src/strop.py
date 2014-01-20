@@ -1,4 +1,5 @@
 import os
+import shutil
 from io import say
 from io import inline_print
 from collections import deque
@@ -52,47 +53,57 @@ def count_ngrams(corpus, n_vals=False):
                     print >> outf, tok,
                 print >> outf, count
 
-def decide_vocab(unigrams, cutoff):
+def decide_vocab(unigrams, cutoff, vocab_size):
     global token_dict
-    outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff) 
     assert(unigrams and os.path.isfile(unigrams))     
+    assert((not (cutoff is None and vocab_size is None)) and (cutoff is None or vocab_size is None))        
 
     say('Reading unigrams')
     vocab = {}
-    num_unigrams = 0 
-    total_count = 0.
-    mine_count = 0.
+    num_words = 0 
+    total_sum = 0.
+    mysum = 0.
     token_dict = {}
     token_head = 1 # starting from 1 for matlab 
     
     with open(unigrams) as f:
         for line in f:
-            num_unigrams += 1
+            num_words += 1
             toks = line.split()
             if len(toks) != 2: continue
             word = toks[0]
-            count = int(toks[1])            
-            
-            total_count += count
-            if count > cutoff:
-                mine_count += count 
-                vocab[word] = count
-                if not word in token_dict: token_dict[word] = token_head; token_head += 1 
+            count = int(toks[1])
+            total_sum += count            
+
+            if ((cutoff is not None) and (count <= cutoff)) or ((vocab_size is not None) and len(vocab) == vocab_size): continue             
+            vocab[word] = count
+            if not word in token_dict: token_dict[word] = token_head; token_head += 1
+            mysum += count  
     
-    say('Cutoff %i: will keep %i out of %i words (%5.2f%% of unigram mass)' % (cutoff, len(vocab), num_unigrams, mine_count / total_count * 100))
-    token_dict[_rare_] = len(token_dict) + 1
+    if cutoff is not None:
+        say('Cutoff %i: keep %i out of %i words (%5.2f%% unigram mass)' % (cutoff, len(vocab), num_words, mysum/total_sum*100))
+        outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff)
+         
+    if vocab_size is not None: 
+        say('Vocab %i: keep %i out of %i words (%5.2f%% unigram mass)' % (vocab_size, len(vocab), num_words, mysum/total_sum*100))
+        outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size)
+        
+    if len(vocab) < num_words: token_dict[_rare_] = len(token_dict) + 1
     
     return vocab, outfname
 
-def extract_views(corpus, vocab, views, window):
-    views += '.window' + str(window)
-    assert(os.path.isfile(corpus))    
+def extract_stats(corpus, vocab, stats, window):
+    stats += '.window' + str(window)    
+    assert(os.path.isfile(corpus))
     
     cooccur_count = Counter()
-    def inc_cooccur(q):
+    Xcount = Counter()
+    Ycount = Counter()
+    def inc_stats(q):
         center = (window - 1) / 2 # position of the current token
         if q[center] == _buffer_: return
         token = q[center] if q[center] in vocab else _rare_
+        Xcount[token] += 1
         for i in range(window):
             if i != center:
                 if q[i] == _buffer_: continue
@@ -101,6 +112,7 @@ def extract_views(corpus, vocab, views, window):
                 position_marker = '<+'+str(rel_position)+'>' if rel_position > 0 else '<'+str(rel_position)+'>'
                 friend += position_marker
                 cooccur_count[(token, friend)] += 1
+                Ycount[friend] += 1
             
     num_tok = 0
     q = deque([_buffer_ for _ in range(window-1)], window)
@@ -114,19 +126,38 @@ def extract_views(corpus, vocab, views, window):
                     num_tok += 1
                     if num_tok % 1000 is 0: inline_print('Processed %i tokens' % (num_tok))
                     q.append(tok)
-                    inc_cooccur(q)                    
+                    inc_stats(q)                    
                  
     for _ in range(window-1):
         q.append(_buffer_)
-        inc_cooccur(q)
+        inc_stats(q)
 
-    say('\nWriting to {}'.format(views))
+#     for token, friend in cooccur_count: print token, friend, cooccur_count[(token, friend)] 
+#     print 
+#     for token in Xcount: print token, Xcount[token] 
+#     print 
+#     for friend in Ycount: print friend, Ycount[friend]
+#     exit()
+
+    say('\nCreating directory {}'.format(stats))
+    if os.path.exists(stats): shutil.rmtree(stats)
+    os.makedirs(stats)
     friend_dict = {}
     friend_head = 1 # starting from 1 for matlab     
     
-    with open(views, 'wb') as outf:
+    with open(stats + '/XY', 'wb') as XYfile:
         for (token, friend) in cooccur_count:
             if not friend in friend_dict: friend_dict[friend] = friend_head; friend_head += 1 
+            print >> XYfile, token_dict[token], friend_dict[friend], cooccur_count[(token, friend)]
+
+    with open(stats + '/X', 'wb') as Xfile:
+        for token in Xcount: print >> Xfile, token_dict[token], Xcount[token]
+ 
+    with open(stats + '/Y', 'wb') as Yfile:
+        for friend in Ycount: print >> Yfile, friend_dict[friend], Ycount[friend]
+
+    with open(stats + '/wordmap', 'wb') as wordmapfile:
+        for token in token_dict: print >> wordmapfile, token_dict[token], token
             
-            #print token, token_dict[token], friend, friend_dict[friend], cooccur_count[(token, friend)]
-            print >> outf, token_dict[token], friend_dict[friend], cooccur_count[(token, friend)]
+        
+        
