@@ -17,7 +17,7 @@ def main(args):
     if args.stats:        
         C = canon()
         C.set_params(args.m, args.kappa)     
-        C.get_stats(args.stats)        
+        C.get_stats(args.stats)
         C.start_logging()
         C.approx_cca()
         C.end_logging()

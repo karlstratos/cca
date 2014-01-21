@@ -25,9 +25,9 @@ def command(command_str):
     os.system(command_str)
     
 def clean():
-    command('find . -type f -name \'*.pyc\' -print -o -name \'*~\' -print | xargs rm -rf') # remove *.pyc *~ 
-    command('find input/example/ -type f -not -name \'example.corpus\' | xargs rm -rf')    # remove input/example/* except for example.corpus
-    command('rm -rf output/example*')                                                      # remove output/example*    
+    command('find . -type f -name \'*.pyc\' -print -o -name \'*~\' -print | xargs rm -rf')       # remove *.pyc *~
+    command('find input/example -not -path "input/example" | grep -v ".*corpus" | xargs rm -rf') # remove input/example/* except for example.corpus
+    command('rm -rf output/example*')                                                            # remove output/example*    
 
 def inline_print(string):
     if not _quiet_:
@@ -40,6 +40,8 @@ def wc_l(fname):
     if p.returncode != 0:
         raise IOError(err)
     return int(result.strip().split()[0])
+
+def complete_path(path): return path if path[-1] == '/' else path+'/'
 
 def read_embeddings(embedding_file, top=None, vocab=None):
     freqs = {}

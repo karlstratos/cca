@@ -1,5 +1,4 @@
 import os
-import shutil
 from io import say
 from io import inline_print
 from collections import deque
@@ -7,7 +6,6 @@ from collections import Counter
 
 _rare_ = '<?>'
 _buffer_ = '<*>'
-token_dict = {}
 
 def count_unigrams(corpus):
     unigrams = os.path.splitext(corpus)[0] + '.1grams'
@@ -54,7 +52,6 @@ def count_ngrams(corpus, n_vals=False):
                 print >> outf, count
 
 def decide_vocab(unigrams, cutoff, vocab_size):
-    global token_dict
     assert(unigrams and os.path.isfile(unigrams))     
     assert((not (cutoff is None and vocab_size is None)) and (cutoff is None or vocab_size is None))        
 
@@ -63,8 +60,6 @@ def decide_vocab(unigrams, cutoff, vocab_size):
     num_words = 0 
     total_sum = 0.
     mysum = 0.
-    token_dict = {}
-    token_head = 1 # starting from 1 for matlab 
     
     with open(unigrams) as f:
         for line in f:
@@ -76,8 +71,7 @@ def decide_vocab(unigrams, cutoff, vocab_size):
             total_sum += count            
 
             if ((cutoff is not None) and (count <= cutoff)) or ((vocab_size is not None) and len(vocab) == vocab_size): continue             
-            vocab[word] = count
-            if not word in token_dict: token_dict[word] = token_head; token_head += 1
+            vocab[word] = count            
             mysum += count  
     
     if cutoff is not None:
@@ -88,15 +82,13 @@ def decide_vocab(unigrams, cutoff, vocab_size):
         say('Vocab %i: keep %i out of %i words (%5.2f%% unigram mass)' % (vocab_size, len(vocab), num_words, mysum/total_sum*100))
         outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size)
         
-    if len(vocab) < num_words: token_dict[_rare_] = len(token_dict) + 1
-    
     return vocab, outfname
 
 def extract_stats(corpus, vocab, stats, window):
     stats += '.window' + str(window)    
     assert(os.path.isfile(corpus))
     
-    cooccur_count = Counter()
+    XYcount = Counter()
     Xcount = Counter()
     Ycount = Counter()
     def inc_stats(q):
@@ -111,7 +103,7 @@ def extract_stats(corpus, vocab, stats, window):
                 rel_position = i-center
                 position_marker = '<+'+str(rel_position)+'>' if rel_position > 0 else '<'+str(rel_position)+'>'
                 friend += position_marker
-                cooccur_count[(token, friend)] += 1
+                XYcount[(token, friend)] += 1
                 Ycount[friend] += 1
             
     num_tok = 0
@@ -127,37 +119,34 @@ def extract_stats(corpus, vocab, stats, window):
                     if num_tok % 1000 is 0: inline_print('Processed %i tokens' % (num_tok))
                     q.append(tok)
                     inc_stats(q)                    
+    inline_print('\n')
                  
     for _ in range(window-1):
         q.append(_buffer_)
         inc_stats(q)
-
-#     for token, friend in cooccur_count: print token, friend, cooccur_count[(token, friend)] 
-#     print 
-#     for token in Xcount: print token, Xcount[token] 
-#     print 
-#     for friend in Ycount: print friend, Ycount[friend]
-#     exit()
-
-    say('\nCreating directory {}'.format(stats))
-    if os.path.exists(stats): shutil.rmtree(stats)
-    os.makedirs(stats)
-    friend_dict = {}
-    friend_head = 1 # starting from 1 for matlab     
     
-    with open(stats + '/XY', 'wb') as XYfile:
-        for (token, friend) in cooccur_count:
-            if not friend in friend_dict: friend_dict[friend] = friend_head; friend_head += 1 
-            print >> XYfile, token_dict[token], friend_dict[friend], cooccur_count[(token, friend)]
+
+    say('Creating directory {}'.format(stats))
+    if not os.path.exists(stats): os.makedirs(stats)                
+    xi, yi = {}, {}
+    xhead, yhead = 1, 1 # starting from 1 for matlab     
 
     with open(stats + '/X', 'wb') as Xfile:
-        for token in Xcount: print >> Xfile, token_dict[token], Xcount[token]
- 
-    with open(stats + '/Y', 'wb') as Yfile:
-        for friend in Ycount: print >> Yfile, friend_dict[friend], Ycount[friend]
+        for token in Xcount: 
+            if not token in xi: xi[token] = xhead; xhead += 1
+            print >> Xfile, xi[token], Xcount[token]
 
     with open(stats + '/wordmap', 'wb') as wordmapfile:
-        for token in token_dict: print >> wordmapfile, token_dict[token], token
+        for token in xi: print >> wordmapfile, xi[token], token
+ 
+    with open(stats + '/Y', 'wb') as Yfile:
+        for friend in Ycount:
+            if not friend in yi: yi[friend] = yhead; yhead += 1  
+            print >> Yfile, yi[friend], Ycount[friend]
+    
+    with open(stats + '/XY', 'wb') as XYfile:
+        for (token, friend) in XYcount:
+            print >> XYfile, xi[token], yi[friend], XYcount[(token, friend)]
             
-        
+    return XYcount, Xcount, Ycount, stats
         

@@ -6,6 +6,7 @@ from io import say
 from io import wc_l
 from io import inline_print
 from io import write_row
+from io import complete_path
 from svd import mysparsesvd
 from numpy import array
 from numpy.linalg import norm
@@ -24,23 +25,23 @@ class canon(object):
         self.kappa = kappa
 
     def get_stats(self, stats):
-        self.stats = stats        
-        self.XYstats = stats + 'XY' if stats[-1] == '/' else stats + '/XY'
-        self.Xstats = stats + 'X' if stats[-1] == '/' else stats + '/X'
-        self.Ystats = stats + 'Y' if stats[-1] == '/' else stats + '/Y'
+        self.stats = complete_path(stats)        
+        XYstats = self.stats + 'XY'
+        Xstats = self.stats + 'X' 
+        Ystats = self.stats + 'Y' 
         
-        assert(os.path.isfile(self.XYstats) and os.path.isfile(self.Xstats) and os.path.isfile(self.Ystats))
-        say('XYstats: {}'.format(self.XYstats))
-        say('Xstats: {}'.format(self.Xstats))
-        say('Ystats: {}'.format(self.Ystats))
+        assert(os.path.isfile(XYstats) and os.path.isfile(Xstats) and os.path.isfile(Ystats))
+        say('XYstats: {}'.format(XYstats))
+        say('Xstats: {}'.format(Xstats))
+        say('Ystats: {}'.format(Ystats))
         self.wordmap = {}
-        wordmapf = stats + 'wordmap' if stats[-1] == '/' else stats + '/wordmap'
+        wordmapf = self.stats + 'wordmap'
         with open(wordmapf) as f:
             for line in f:
                 toks = line.split()
                 self.wordmap[int(toks[0])-1] = toks[1]
         
-        pickle_file = self.XYstats + '.pickled'
+        pickle_file = self.stats + 'pickle'
         if os.path.isfile(pickle_file):
             with open(pickle_file) as f:
                 self.countXY, self.countX, self.countY, self.num_samples = cPickle.load(f)
@@ -51,9 +52,9 @@ class canon(object):
         self.countY = Counter()
         self.num_samples = 0. 
         
-        num_lines = wc_l(self.XYstats)
+        num_lines = wc_l(XYstats)
         linenum = 0
-        with open(self.XYstats) as f:
+        with open(XYstats) as f:
             for line in f:
                 linenum += 1
                 toks = line.split()
@@ -61,14 +62,14 @@ class canon(object):
                 self.countXY[x, y] = count 
                 if linenum % 1000 is 0: inline_print('Processing line %i of %i' % (linenum, num_lines))
         
-        with open(self.Xstats) as f:
+        with open(Xstats) as f:
             for line in f:
                 toks = line.split()
                 x, count = int(toks[0])-1, int(toks[1])
                 self.countX[x] = count
                 self.num_samples += count
         
-        with open(self.Ystats) as f:
+        with open(Ystats) as f:
             for line in f:
                 toks = line.split()
                 y, count = int(toks[0])-1, int(toks[1])
@@ -92,12 +93,9 @@ class canon(object):
         say(string)        
                 
     def start_logging(self):
-        name = self.stats.rsplit('/',1)[1] if self.stats[-1] != '/' else self.stats[:-1].rsplit('/',1)[1] 
-        self.dirname = 'output/{}.m{}.kappa{}'.\
-                        format(name, self.m, self.kappa)
-        self.dirname += '.out'
-        if not os.path.exists(self.dirname):
-            os.makedirs(self.dirname)                
+        self.dirname = 'output/{}.m{}.kappa{}.out'.\
+                        format(self.stats[:-1].rsplit('/',1)[1] , self.m, self.kappa)
+        if not os.path.exists(self.dirname): os.makedirs(self.dirname)                
         self.logf = open(self.dirname+'/log', 'wb')
         self.start_time = datetime.datetime.now().replace(microsecond=0)
         self.rec(strftime('\nStart time: %Y-%m-%d %H:%M:%S'))
@@ -107,7 +105,7 @@ class canon(object):
         self.rec('________________________________________')
         self.rec(strftime('End time: %Y-%m-%d %H:%M:%S'))
         self.end_time = datetime.datetime.now().replace(microsecond=0)
-        self.rec('Total time: ' + str(self.end_time - self.start_time)) # write max memory use
+        self.rec('Total time: ' + str(self.end_time - self.start_time)) # write max memory use?
         self.logf.close()
 
     def approx_cca(self):        
@@ -119,11 +117,11 @@ class canon(object):
                         
         invsqrt_covX = compute_invsqrt_diag_cov(self.countX, self.kappa, self.num_samples)
         invsqrt_covY = compute_invsqrt_diag_cov(self.countY, self.kappa, self.num_samples)
-        C = float(1./self.num_samples) * invsqrt_covX * self.countXY * invsqrt_covY # still sparse
+        Omega = float(1./self.num_samples) * invsqrt_covX * self.countXY * invsqrt_covY # still sparse
         
-        self.rec('C: dimensions {} x {}, {} nonzeros'.format(C.shape[0], C.shape[1], C.nnz))
-        self.rec('Computing {} left singular vectors U of C...'.format(self.m))
-        self.U, self.sv, _ = mysparsesvd(C, self.m)
+        self.rec('Omega: dimensions {} x {}, {} nonzeros'.format(Omega.shape[0], Omega.shape[1], Omega.nnz))
+        self.rec('Computing {} left singular vectors U of Omega...'.format(self.m))
+        self.U, self.sv, _ = mysparsesvd(Omega, self.m)
     
     def write_result(self):
         self.write_sv()
@@ -131,10 +129,8 @@ class canon(object):
 
     def write_sv(self):
         say('\nStoring singular values at: %s' % self.dirname+'/sv')
-        nsv = self.sv / max(self.sv)
         with open(self.dirname+'/sv', 'wb') as outf:
-            for i in range(len(self.sv)):
-                print >> outf, self.sv[i], nsv[i]
+            for i in range(len(self.sv)): print >> outf, self.sv[i]
         
     def write_U(self):
         say('Storing row-normalized U at: %s' % self.dirname+'/Ur')
