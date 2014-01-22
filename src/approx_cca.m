@@ -24,7 +24,7 @@ function [Ur, sv] = approx_cca(stat, m, kappa, outdirname)
     end
     toc;
     
-    disp('Computing');
+    disp('Computing the normalized covariance matrix Omega');
     tic;
     u = (countX + kappa) / num_samples;
     v = (countY + kappa) / num_samples;
@@ -47,7 +47,9 @@ function [Ur, sv] = approx_cca(stat, m, kappa, outdirname)
     for itemp=1:vocab_size
         i = idx(itemp);
         fprintf(UrfileID, '%d %s', freqX(i), map{i}{1});
+        row_length = norm(Ur(i,:));
         for j=1:m
+            Ur(i,j) = Ur(i,j) / row_length;
             fprintf(UrfileID, ' %f', Ur(i,j));
         end
         fprintf(UrfileID, '\n');
