@@ -34,11 +34,18 @@ function [Ur, sv] = approx_cca(stat, m, kappa, outdirname)
     
     fprintf('Omega: %d by %d (%d nonzeros)\n', ...
         size(Omega,1), size(Omega,2), nnz(Omega));
-    [Ur, sv, ~] = svds(Omega, m);
-    Ur = bsxfun(@times, Ur, 1./sqrt(sum(Ur.^2, 2)));
+    if 0
+        [Ur, sv, ~] = svds(Omega, m);
+    else
+        opts.issym = 1;
+        [Ur, sv, flag] = eigs(@Afun, vocab_size, m, 'lm', opts);
+        fprintf('Return code = %d\n', flag);
+        sv = sqrt(sv);  
+    end
     toc;
     
     fprintf('Writing result to %s\n', outdirname);
+    tic;
     mkdir(outdirname);
     UrfileID = fopen(strcat(outdirname, '/Ur'), 'w');
     svfileID = fopen(strcat(outdirname, '/sv'), 'w');
@@ -59,5 +66,10 @@ function [Ur, sv] = approx_cca(stat, m, kappa, outdirname)
     end
     fclose(UrfileID);
     fclose(svfileID);
+    toc;
+
+    function y = Afun(x)
+        y = Omega * (Omega' * x);
+    end    
 end
 
