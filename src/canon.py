@@ -122,8 +122,6 @@ class canon(object):
         self.rec('Omega: dimensions {} x {}, {} nonzeros'.format(Omega.shape[0], Omega.shape[1], Omega.nnz))
         self.rec('Computing {} left singular vectors U of Omega...'.format(self.m))
         self.U, self.sv, _ = mysparsesvd(Omega, self.m)
-        
-        self.U = invsqrt_covX * self.U
     
     def write_result(self):
         self.write_sv()
