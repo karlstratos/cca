@@ -17,15 +17,14 @@ _rare_ = '<?>'
 
 class canon(object):
 
-    def set_params(self, m, kappa):
-        assert(m is not None and kappa is not None)
+    def set_params(self, m, kappa):        
         say('m: {}'.format(m))
         say('kappa: {}'.format(kappa))
         self.m = m
         self.kappa = kappa
 
     def get_stats(self, stats):
-        self.stats = complete_path(stats)        
+        self.stats = complete_path(stats)
         XYstats = self.stats + 'XY'
         Xstats = self.stats + 'X' 
         Ystats = self.stats + 'Y' 
@@ -122,6 +121,7 @@ class canon(object):
         self.rec('Omega: dimensions {} x {}, {} nonzeros'.format(Omega.shape[0], Omega.shape[1], Omega.nnz))
         self.rec('Computing {} left singular vectors U of Omega...'.format(self.m))
         self.U, self.sv, _ = mysparsesvd(Omega, self.m)
+        for i in range(self.U.shape[0]): self.U[i,:] /= norm(self.U[i,:])
     
     def write_result(self):
         self.write_sv()
@@ -135,6 +135,5 @@ class canon(object):
     def write_U(self):
         say('Storing row-normalized U at: %s' % self.dirname+'/Ur')
         sorted_indices = [pair[0] for pair in sorted([(i, self.countX[i]) for i in self.wordmap], key=lambda x:x[1], reverse=True)]
-        for i in range(self.U.shape[0]): self.U[i,:] /= norm(self.U[i,:])
         with open(self.dirname+'/Ur', 'wb') as f:
             for i in sorted_indices: write_row(f, self.countX[i], self.wordmap[i], self.U[i,:]) 

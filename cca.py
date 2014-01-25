@@ -5,6 +5,7 @@ from src.strop import count_unigrams
 from src.strop import decide_vocab
 from src.strop import extract_stats
 from src.canon import canon
+from src.call_matlab import call_matlab 
 
 def main(args):
     set_quiet(args.quiet)
@@ -14,14 +15,18 @@ def main(args):
         vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab)
         extract_stats(args.corpus, vocab, outfname, args.window)
     
-    if args.stats:        
-        C = canon()
-        C.set_params(args.m, args.kappa)     
-        C.get_stats(args.stats)
-        C.start_logging()
-        C.approx_cca()
-        C.end_logging()
-        C.write_result()
+    if args.stats:
+        assert(args.m is not None and args.kappa is not None)
+        if args.no_matlab:        
+            C = canon()
+            C.set_params(args.m, args.kappa)     
+            C.get_stats(args.stats)
+            C.start_logging()
+            C.approx_cca()
+            C.end_logging()
+            C.write_result()
+        else:
+            call_matlab(args.stats, args.m, args.kappa)
         
     if args.clean: clean()
     
@@ -38,6 +43,7 @@ if __name__=='__main__':
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--clean',         action='store_true',  help='clean up directories')
     argparser.add_argument('--quiet',         action='store_true',  help='quiet mode')
+    argparser.add_argument('--no_matlab',     action='store_true',  help='do not call matlab - use python sparsesvd')
     args = argparser.parse_args()
     main(args)
     

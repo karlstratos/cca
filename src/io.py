@@ -85,12 +85,20 @@ def normalize_rows(embedding_file):
     for i in range(A.shape[0]): A[i,:] /= norm(A[i,:])
     write_embeddings(freqs, words, A, embedding_file + '.rows_normalized')
     
-def scrape_words(sentences): 
-    myvocab = {}
-    with open(sentences) as f:
-        for line in f:
-            toks = line.split()
-            if len(toks) == 0: continue
-            myvocab[toks[0]] = True
-    return myvocab
+def read_wordmap(wordmap_file):
+    wordmap = {}
+    lines = open(wordmap_file).readlines()
+    for line in lines: 
+        toks = line.split() 
+        wordmap[int(toks[0])-1] = toks[1]
+    return wordmap
+
+def read_freqmap(freqmap_file):
+    freqmap = {}
+    lines = open(freqmap_file).readlines()
+    for line in lines:
+        toks = line.split()
+        freqmap[int(toks[0])-1] = int(toks[1])
+    return freqmap    
+    
     
