@@ -2,7 +2,7 @@ import os
 from src.io import set_quiet
 from src.strop import count_unigrams
 from src.strop import decide_vocab
-from src.strop import extract_stats
+from src.strop import extract_stat
 from src.io import clean
 from src.canon import canon
 from src.call_matlab import call_matlab
@@ -14,7 +14,7 @@ corpus = 'input/example/example.corpus'
 def check():
     unigrams = count_unigrams(corpus)
     vocab, outfname = decide_vocab(unigrams, cutoff, None)
-    XYcount, Xcount, Ycount, stat = extract_stats(corpus, vocab, outfname, window)
+    XYcount, Xcount, Ycount, stat = extract_stat(corpus, vocab, outfname, window)
     for x in Xcount: assert(Xcount[x] == gold_Xcount[x])
     for y in Ycount: assert(Ycount[y] == gold_Ycount[y])
     for x, y in XYcount: assert(XYcount[x,y] == gold_XYcount[x,y])
