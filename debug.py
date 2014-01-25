@@ -51,7 +51,7 @@ kappa = 1
 
 C = canon()
 C.set_params(m, kappa)
-C.get_stats(stat)        
+C.get_stat(stat)        
 C.start_logging()
 C.approx_cca()
 C.end_logging()
