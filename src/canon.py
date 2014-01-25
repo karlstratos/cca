@@ -23,24 +23,24 @@ class canon(object):
         self.m = m
         self.kappa = kappa
 
-    def get_stats(self, stats):
-        self.stats = complete_path(stats)
-        XYstats = self.stats + 'XY'
-        Xstats = self.stats + 'X' 
-        Ystats = self.stats + 'Y' 
+    def get_stat(self, stat):
+        self.stat = complete_path(stat)
+        XYstats = self.stat + 'XY'
+        Xstats = self.stat + 'X' 
+        Ystats = self.stat + 'Y' 
         
         assert(os.path.isfile(XYstats) and os.path.isfile(Xstats) and os.path.isfile(Ystats))
         say('XYstats: {}'.format(XYstats))
         say('Xstats: {}'.format(Xstats))
         say('Ystats: {}'.format(Ystats))
         self.wordmap = {}
-        wordmapf = self.stats + 'wordmap'
+        wordmapf = self.stat + 'wordmap'
         with open(wordmapf) as f:
             for line in f:
                 toks = line.split()
                 self.wordmap[int(toks[0])-1] = toks[1]
         
-        pickle_file = self.stats + 'pickle'
+        pickle_file = self.stat + 'pickle'
         if os.path.isfile(pickle_file):
             with open(pickle_file) as f:
                 self.countXY, self.countX, self.countY, self.num_samples = cPickle.load(f)
@@ -93,7 +93,7 @@ class canon(object):
                 
     def start_logging(self):
         self.dirname = 'output/{}.m{}.kappa{}.out'.\
-                        format(self.stats[:-1].rsplit('/',1)[1] , self.m, self.kappa)
+                        format(self.stat[:-1].rsplit('/',1)[1] , self.m, self.kappa)
         if not os.path.exists(self.dirname): os.makedirs(self.dirname)                
         self.logf = open(self.dirname+'/log', 'wb')
         self.start_time = datetime.datetime.now().replace(microsecond=0)

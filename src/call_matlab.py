@@ -25,3 +25,5 @@ def call_matlab(stat, m, kappa):
     lines = open(os.path.join(outdirname, 'Ur')).readlines()
     with open(os.path.join(outdirname, 'Ur'), 'wb') as outf:
         for i in sorted_indices: write_row(outf, freqmap[i], wordmap[i], lines[i].split())
+    
+    return outdirname

@@ -1,13 +1,13 @@
-
-CCA on text data                                 Karl Stratos
+                                                 Karl Stratos
+Deriving word embeddings
                                       stratos@cs.columbia.edu
 _____________________________________________________________
-1. When you have a raw (but properly tokenized) text corpus 
+Requirements: python (2.7), numpy, scipy, sparsesvd, matlab
 
-(a) python cca.py --corpus input/example/example.corpus --cutoff 0 --myvocab input/pos/univ12.all
+Sanity: run "python debug.py" to ensure everything is working.
 
-(b) python cca.py --views input/example/example.cutoff0.univ12.window3 --m 2 --kappa 1
+Usage: given a raw (but properly tokenized) text corpus. 
+Using a toy corpus as example, run
 
-_____________________________________________________________
-2. When you have separately processed features (e.g., from
- Google n-grams), start from step (b).
+(a) python cca.py --corpus input/example/example.corpus --cutoff 1
+(b) python cca.py --stat input/example/example.cutoff1.window3/ --m 2 --kappa 2

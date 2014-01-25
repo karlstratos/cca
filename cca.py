@@ -3,7 +3,7 @@ from src.io import clean
 from src.io import set_quiet
 from src.strop import count_unigrams
 from src.strop import decide_vocab
-from src.strop import extract_stats
+from src.strop import extract_stat
 from src.canon import canon
 from src.call_matlab import call_matlab 
 
@@ -13,20 +13,20 @@ def main(args):
     if args.corpus: 
         unigrams = count_unigrams(args.corpus)
         vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab)
-        extract_stats(args.corpus, vocab, outfname, args.window)
+        extract_stat(args.corpus, vocab, outfname, args.window)
     
-    if args.stats:
+    if args.stat:
         assert(args.m is not None and args.kappa is not None)
         if args.no_matlab:        
             C = canon()
             C.set_params(args.m, args.kappa)     
-            C.get_stats(args.stats)
+            C.get_stat(args.stat)
             C.start_logging()
             C.approx_cca()
             C.end_logging()
             C.write_result()
         else:
-            call_matlab(args.stats, args.m, args.kappa)
+            call_matlab(args.stat, args.m, args.kappa)
         
     if args.clean: clean()
     
@@ -37,7 +37,7 @@ if __name__=='__main__':
     argparser.add_argument('--vocab',         type=int,             help='size of the vocabulary')
     argparser.add_argument('--window',        type=int, default=3,  help='size of the sliding window')
     #_________________________________________________________________________________________________________________________________
-    argparser.add_argument('--stats',         type=str,             help='directory containing statistics')
+    argparser.add_argument('--stat',          type=str,             help='directory containing statistics')
     argparser.add_argument('--m',             type=int,             help='number of dimensions')
     argparser.add_argument('--kappa',         type=int,             help='smoothing parameter')
     #_________________________________________________________________________________________________________________________________

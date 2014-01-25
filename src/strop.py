@@ -84,8 +84,8 @@ def decide_vocab(unigrams, cutoff, vocab_size):
         
     return vocab, outfname
 
-def extract_stats(corpus, vocab, stats, window):
-    stats += '.window' + str(window)    
+def extract_stat(corpus, vocab, stat, window):
+    stat += '.window' + str(window)    
     assert(os.path.isfile(corpus))
     
     XYcount = Counter()
@@ -126,27 +126,27 @@ def extract_stats(corpus, vocab, stats, window):
         inc_stats(q)
     
 
-    say('Creating directory {}'.format(stats))
-    if not os.path.exists(stats): os.makedirs(stats)                
+    say('Creating directory {}'.format(stat))
+    if not os.path.exists(stat): os.makedirs(stat)                
     xi, yi = {}, {}
     xhead, yhead = 1, 1 # starting from 1 for matlab     
 
-    with open(stats + '/X', 'wb') as Xfile:
+    with open(stat + '/X', 'wb') as Xfile:
         for token in Xcount: 
             if not token in xi: xi[token] = xhead; xhead += 1
             print >> Xfile, xi[token], Xcount[token]
 
-    with open(stats + '/wordmap', 'wb') as wordmapfile:
+    with open(stat + '/wordmap', 'wb') as wordmapfile:
         for token in xi: print >> wordmapfile, xi[token], token
  
-    with open(stats + '/Y', 'wb') as Yfile:
+    with open(stat + '/Y', 'wb') as Yfile:
         for friend in Ycount:
             if not friend in yi: yi[friend] = yhead; yhead += 1  
             print >> Yfile, yi[friend], Ycount[friend]
     
-    with open(stats + '/XY', 'wb') as XYfile:
+    with open(stat + '/XY', 'wb') as XYfile:
         for (token, friend) in XYcount:
             print >> XYfile, xi[token], yi[friend], XYcount[(token, friend)]
             
-    return XYcount, Xcount, Ycount, stats
+    return XYcount, Xcount, Ycount, stat
         

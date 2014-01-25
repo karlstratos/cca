@@ -6,7 +6,6 @@
 input/*
 !input/README
 !input/example/example.corpus
-!input/pos
 
 # ignore outputs
 output/*
