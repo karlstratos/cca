@@ -62,8 +62,13 @@ def decide_vocab(unigrams, cutoff, vocab_size, want):
     mysum = 0.
     
     wantname = ''
-    if want: 
-        wanted_words = map(lambda line: line.split()[0], filter(lambda line: len(line.split()) > 0, open(want).readlines()))
+    if want:
+        wanted_words = {} 
+        lines = open(want).readlines()
+        for line in lines:
+            toks = line.split()
+            if len(toks) == 0: continue 
+            wanted_words[toks[0]] = True
         wantname = '.' + os.path.splitext(os.path.basename(want))[0]
         num_wanted = 0
     
