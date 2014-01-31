@@ -51,7 +51,7 @@ def count_ngrams(corpus, n_vals=False):
                     print >> outf, tok,
                 print >> outf, count
 
-def decide_vocab(unigrams, cutoff, vocab_size):
+def decide_vocab(unigrams, cutoff, vocab_size, want):
     assert(unigrams and os.path.isfile(unigrams))     
     assert((not (cutoff is None and vocab_size is None)) and (cutoff is None or vocab_size is None))        
 
@@ -60,6 +60,12 @@ def decide_vocab(unigrams, cutoff, vocab_size):
     num_words = 0 
     total_sum = 0.
     mysum = 0.
+    
+    wantname = ''
+    if want: 
+        wanted_words = map(lambda line: line.split()[0], filter(lambda line: len(line.split()) > 0, open(want).readlines()))
+        wantname = '.' + os.path.splitext(os.path.basename(want))[0]
+        num_wanted = 0
     
     with open(unigrams) as f:
         for line in f:
@@ -70,17 +76,21 @@ def decide_vocab(unigrams, cutoff, vocab_size):
             count = int(toks[1])
             total_sum += count            
 
-            if ((cutoff is not None) and (count <= cutoff)) or ((vocab_size is not None) and len(vocab) == vocab_size): continue             
+            if ((cutoff is not None) and (count <= cutoff)) or ((vocab_size is not None) and len(vocab) == vocab_size):
+                if not (want and word in wanted_words): continue             
             vocab[word] = count            
-            mysum += count  
+            mysum += count
+            if want and word in wanted_words: num_wanted += 1  
     
     if cutoff is not None:
         say('Cutoff %i: keep %i out of %i words (%5.2f%% unigram mass)' % (cutoff, len(vocab), num_words, mysum/total_sum*100))
-        outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff)
+        outfname = os.path.splitext(unigrams)[0] + '.cutoff' + str(cutoff) + wantname
          
     if vocab_size is not None: 
         say('Vocab %i: keep %i out of %i words (%5.2f%% unigram mass)' % (vocab_size, len(vocab), num_words, mysum/total_sum*100))
-        outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size)
+        outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size) + + wantname
+    
+    if want: say(' - Have %i out of %i wanted words' %(num_wanted, len(wanted_words)))
         
     return vocab, outfname
 

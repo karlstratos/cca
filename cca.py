@@ -12,7 +12,7 @@ def main(args):
     
     if args.corpus: 
         unigrams = count_unigrams(args.corpus)
-        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab)
+        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab, args.want)
         extract_stat(args.corpus, vocab, outfname, args.window)
     
     if args.stat:
@@ -34,8 +34,9 @@ if __name__=='__main__':
     argparser = argparse.ArgumentParser('Derives word vectors by decomposing a scaled covariance matrix')
     argparser.add_argument('--corpus',        type=str,             help='count words from this corpus')
     argparser.add_argument('--cutoff',        type=int,             help='cut off words appearing <= this number')
-    argparser.add_argument('--vocab',         type=int,             help='size of the vocabulary')
+    argparser.add_argument('--vocab',         type=int,             help='size of the vocabulary')    
     argparser.add_argument('--window',        type=int, default=3,  help='size of the sliding window')
+    argparser.add_argument('--want',          type=str,             help='want words in this file')
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--stat',          type=str,             help='directory containing statistics')
     argparser.add_argument('--m',             type=int,             help='number of dimensions')
