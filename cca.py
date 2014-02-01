@@ -4,6 +4,7 @@ from src.io import set_quiet
 from src.strop import count_unigrams
 from src.strop import decide_vocab
 from src.strop import extract_stat
+from src.strop import rewrite_corpus
 from src.canon import canon
 from src.call_matlab import call_matlab 
 
@@ -13,7 +14,8 @@ def main(args):
     if args.corpus: 
         unigrams = count_unigrams(args.corpus)
         vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab, args.want)
-        extract_stat(args.corpus, vocab, outfname, args.window)
+        if args.write_corpus: rewrite_corpus(args.corpus, vocab, outfname)
+        else:                 extract_stat(args.corpus, vocab, outfname, args.window)
     
     if args.stat:
         assert(args.m is not None and args.kappa is not None)
@@ -37,6 +39,7 @@ if __name__=='__main__':
     argparser.add_argument('--vocab',         type=int,             help='size of the vocabulary')    
     argparser.add_argument('--window',        type=int, default=3,  help='size of the sliding window')
     argparser.add_argument('--want',          type=str,             help='want words in this file')
+    argparser.add_argument('--write_corpus',  action='store_true',  help='write out the processed corpus, not statistics')
     #_________________________________________________________________________________________________________________________________
     argparser.add_argument('--stat',          type=str,             help='directory containing statistics')
     argparser.add_argument('--m',             type=int,             help='number of dimensions')

@@ -165,3 +165,21 @@ def extract_stat(corpus, vocab, stat, window):
             
     return XYcount, Xcount, Ycount, stat
         
+def rewrite_corpus(corpus, vocab, outfname):
+    outfname += '.corpus'
+    num_tok = 0
+    with open(outfname, 'wb') as outf:
+        with open(corpus) as corpusf:
+            while True:
+                lines = corpusf.readlines(10000000) # caching lines
+                if not lines: break
+                for line in lines:
+                    toks = line.split()
+                    for tok in toks:
+                        num_tok += 1
+                        if tok in vocab: outf.write(tok+'\n')
+                        else:            outf.write('<?>\n')  
+                        if num_tok % 1000 is 0: inline_print('Processed %i tokens' % (num_tok))
+            inline_print('\n')
+
+    
