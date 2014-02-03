@@ -93,7 +93,7 @@ def decide_vocab(unigrams, cutoff, vocab_size, want):
          
     if vocab_size is not None: 
         say('Vocab %i: keep %i out of %i words (%5.2f%% unigram mass)' % (vocab_size, len(vocab), num_words, mysum/total_sum*100))
-        outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size) + + wantname
+        outfname = os.path.splitext(unigrams)[0] + '.vocab' + str(vocab_size) + wantname
     
     if want: say(' - Have %i out of %i wanted words' %(num_wanted, len(wanted_words)))
         
