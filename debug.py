@@ -1,4 +1,5 @@
 import os
+import sys
 from src.io import set_quiet
 from src.strop import count_unigrams
 from src.strop import decide_vocab
@@ -13,7 +14,7 @@ corpus = 'input/example/example.corpus'
 
 def check():
     unigrams = count_unigrams(corpus)
-    vocab, outfname = decide_vocab(unigrams, cutoff, None)
+    vocab, outfname = decide_vocab(unigrams, cutoff, None, None)
     XYcount, Xcount, Ycount, stat = extract_stat(corpus, vocab, outfname, window)
     for x in Xcount: assert(Xcount[x] == gold_Xcount[x])
     for y in Ycount: assert(Ycount[y] == gold_Ycount[y])
@@ -61,4 +62,5 @@ outdirname = call_matlab(stat, m, kappa)
 sv_matlab = map(lambda line: float(line.split()[0]), open(os.path.join(outdirname, 'sv')).readlines())
 for i in range(len(C.sv)): assert(abs(C.sv[i] - sv_matlab[i]) < 1e-10) 
 
+sys.stderr.write('correctness of statistics and svd calculations verified, cleaning\n')
 clean()
