@@ -1,13 +1,118 @@
-                                                 Karl Stratos
-Deriving word embeddings
-                                      stratos@cs.columbia.edu
-_____________________________________________________________
-Requirements: python (2.7), numpy, scipy, sparsesvd, matlab
+Author: Karl Stratos (stratos@cs.columbia.edu)
 
-Sanity: run "python debug.py" to ensure everything is working.
+Release version: 1.0
+                                      
+Requirements: python (2.7), numpy, scipy, sparsesvd, Matlab
 
-Usage: given a raw (but properly tokenized) text corpus. 
-Using a toy corpus as example, run
+This program is an implementation of canoncial correlation analysis (CCA) in 
+the context of deriving word embeddings. A theoretical justification of this 
+implementation is provided in: 
 
-(a) python cca.py --corpus input/example/example.corpus --cutoff 1
-(b) python cca.py --stat input/example/example.cutoff1.window3/ --m 2 --kappa 2
+A spectral algorithm for learning class-based n-gram models of natrual language
+Karl Stratos, Do-kyum Kim, Michael Collins, and Daniel Hsu.
+In Proceedings of UAI (2014).
+
+v------------------------------------------------------------------------------v
+| Setup                                                                        |
+^------------------------------------------------------------------------------^
+First, make sure your machine has all the required programs listed above. Also,
+to be able to run Matlab on your machine, you need to change the line in the
+call_matlab function in src/call_matlab.py to the path to Matlab on that 
+machine. For example, for me it's: 
+
+matlab = '/Applications/MATLAB_R2013b.app/bin/matlab' 
+
+The easiest way to check everything is good is to run debug.py: 
+
+$ python debug.py
+
+v------------------------------------------------------------------------------v
+| Preparing input data                                                         |
+^------------------------------------------------------------------------------^
+We assume a raw (but properly tokenized) text corpus as an input. There is no 
+restriction such as 'one sentence per line'---we don't need sentence boundaries.
+But sentence boundaries can be incorporated as special tokens. For example, 
+there is a toy corpus input/example/example.corpus:
+
+the dog saw the cat
+the dog barked
+the cat meowed
+
+You can put boundary markers, as in:
+
+_START_ the dog saw the cat _END_
+_START_ the dog barked _END_
+_START_ the cat meowed _END_
+
+v------------------------------------------------------------------------------v
+| Step 1: Deriving statistics                                                  |
+^------------------------------------------------------------------------------^
+In step 1, we extract co-occurrence statistics. For example, running:
+
+python cca.py --corpus input/example/example.corpus --cutoff 1
+
+will create a directory input/example/example.cutoff1.window3/ that contains 
+statistics of example.corpus. The command line arguments for step 1 are 
+the following:
+
+  --corpus CORPUS  count words from this corpus
+  --cutoff CUTOFF  cut off words appearing <= this number
+  --vocab VOCAB    size of the vocabulary
+  --window WINDOW  size of the sliding window
+  --want WANT      want words in this file
+  --rewrite        rewrite the (processed) corpus, not statistics
+
+In particular, you can decide the context (window)---the default is 3, i.e., 
+previous/next words. You can control the size of the vocabulary by discarding 
+rare words (cutoff) or using only a restricted set of vocabulary (vocab). 
+
+Rare words are all replaced by a special token "<?>".
+
+v------------------------------------------------------------------------------v
+| Step 2: Deriving embeddings Ur                                               |
+^------------------------------------------------------------------------------^
+In step 2, we run Matlab to perform SVD on the statistics from step 1. Running:
+
+python cca.py --stat input/example/example.cutoff1.window3/ --m 2 --kappa 2
+
+will create a directory output/example.cutoff1.window3.m2.kappa2.matlab.out/
+that contains the word embedding file Ur:
+
+4 the -2.3410244894135657e-01 -9.7221193337649348e-01
+3 <?> -8.6218169891930729e-01 -5.0659916901690338e-01
+2 dog -9.3955297838817597e-01 3.4240356423657153e-01
+2 cat -9.6347323867084655e-01 2.6780462722871301e-01
+
+where the format of each line is <frequency>, <word>, <val_1>, <val_2>, ..., 
+<val_m>. Also, the rows are ordered in decreasing frequency. 
+
+The command line arguments for step 2 are the following:
+
+  --stat STAT      directory containing statistics
+  --m M            number of dimensions
+  --kappa KAPPA    smoothing parameter
+  --quiet          quiet mode
+  --no_matlab      do not call matlab - use python sparsesvd
+
+In particular, m is the dimensionality of CCA, and kappa is a "pseudocount". 
+The value of kappa needs to be tuned for the given corpus. Try experimenting 
+with 50, 100, 200, ... (or if your data is huge like Google Ngram, 1000, 2000, 
+...) until the performance on your problem stops improving. Matlab's SVD is 
+very fast, so you can try many parameter values with ease. 
+
+v------------------------------------------------------------------------------v
+| Optional post processing                                                     |
+^------------------------------------------------------------------------------^
+Depending on your problem, it might be a good idea to use only the top subspace 
+of your word embeddings. You can derive lower dimensional embeddings via 
+principal component analysis (PCA), e.g.:
+
+python src/pca.py --embedding_file output/example.cutoff1.window3.m2.kappa2.matlab.out/Ur --pca_dim 1
+
+Now you have a file Ur.pca1 that looks like:
+
+4 the 0.906265637029
+3 <?> 0.20812022154
+2 dog -0.585143449361
+2 cat -0.529242409207
+

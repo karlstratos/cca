@@ -13,9 +13,12 @@ def main(args):
     
     if args.corpus: 
         unigrams = count_unigrams(args.corpus)
-        vocab, outfname = decide_vocab(unigrams, args.cutoff, args.vocab, args.want)
-        if args.rewrite: rewrite_corpus(args.corpus, vocab, outfname)
-        else:            extract_stat(args.corpus, vocab, outfname, args.window)
+        vocab, outfname = decide_vocab(unigrams, args.cutoff, 
+                                       args.vocab, args.want)
+        if args.rewrite: 
+            rewrite_corpus(args.corpus, vocab, outfname)
+        else:
+            extract_stat(args.corpus, vocab, outfname, args.window)
     
     if args.stat:
         assert(args.m is not None and args.kappa is not None)
@@ -33,21 +36,44 @@ def main(args):
     if args.clean: clean()
     
 if __name__=='__main__':    
-    argparser = argparse.ArgumentParser('Derives word vectors by decomposing a scaled covariance matrix')
-    argparser.add_argument('--corpus',        type=str,             help='count words from this corpus')
-    argparser.add_argument('--cutoff',        type=int,             help='cut off words appearing <= this number')
-    argparser.add_argument('--vocab',         type=int,             help='size of the vocabulary')    
-    argparser.add_argument('--window',        type=int, default=3,  help='size of the sliding window')
-    argparser.add_argument('--want',          type=str,             help='want words in this file')
-    argparser.add_argument('--rewrite',       action='store_true',  help='rewrite the (processed) corpus, not statistics')
-    #_________________________________________________________________________________________________________________________________
-    argparser.add_argument('--stat',          type=str,             help='directory containing statistics')
-    argparser.add_argument('--m',             type=int,             help='number of dimensions')
-    argparser.add_argument('--kappa',         type=int,             help='smoothing parameter')
-    #_________________________________________________________________________________________________________________________________
-    argparser.add_argument('--clean',         action='store_true',  help='clean up directories')
-    argparser.add_argument('--quiet',         action='store_true',  help='quiet mode')
-    argparser.add_argument('--no_matlab',     action='store_true',  help='do not call matlab - use python sparsesvd')
+    argparser = argparse.ArgumentParser('Derives word vectors')
+    argparser.add_argument('--corpus', 
+                           type=str, 
+                           help='count words from this corpus')
+    argparser.add_argument('--cutoff',
+                           type=int,
+                           help='cut off words appearing <= this number')
+    argparser.add_argument('--vocab', 
+                           type=int, 
+                           help='size of the vocabulary')    
+    argparser.add_argument('--window', 
+                           type=int, 
+                           default=3,
+                           help='size of the sliding window')
+    argparser.add_argument('--want',
+                           type=str, 
+                           help='want words in this file')
+    argparser.add_argument('--rewrite', 
+                           action='store_true', 
+                           help='rewrite the (processed) corpus and quit')
+    argparser.add_argument('--stat', 
+                           type=str, 
+                           help='directory containing statistics')
+    argparser.add_argument('--m', 
+                           type=int, 
+                           help='number of dimensions')
+    argparser.add_argument('--kappa', 
+                           type=int,  
+                           help='smoothing parameter')
+    argparser.add_argument('--clean', 
+                           action='store_true', 
+                           help='clean up directories')
+    argparser.add_argument('--quiet', 
+                           action='store_true',
+                           help='quiet mode')
+    argparser.add_argument('--no_matlab', 
+                           action='store_true', 
+                           help='do not call matlab - use python sparsesvd')
     args = argparser.parse_args()
     main(args)
     
